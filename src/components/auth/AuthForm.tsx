@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { useAuthStore } from '@/store/useAuthStore'
+import { useState, useEffect } from 'react'
+import { useAuth } from '@/hooks/useAuth'
 import toast from 'react-hot-toast'
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react'
 
@@ -13,7 +12,29 @@ export function AuthForm() {
   const [fullName, setFullName] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { refreshProfile } = useAuthStore()
+  const [showSuccess, setShowSuccess] = useState(false)
+  
+  const { signUp, signIn } = useAuth()
+
+  // Function to reset form state
+  const resetForm = () => {
+    setEmail('')
+    setPassword('')
+    setFullName('')
+    setShowPassword(false)
+    setLoading(false)
+  }
+
+  // Function to toggle between sign up and sign in
+  const toggleAuthMode = () => {
+    resetForm()
+    setIsSignUp(!isSignUp)
+  }
+
+  // Reset form when auth mode changes
+  useEffect(() => {
+    resetForm()
+  }, [isSignUp])
 
   // Email validation function
   const isValidEmail = (email: string) => {
@@ -40,77 +61,36 @@ export function AuthForm() {
 
     try {
       if (isSignUp) {
-        console.log('Attempting signup with email:', email)
-        
-        const { data, error } = await supabase.auth.signUp({
-          email: email.trim().toLowerCase(), // Normalize email
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-            },
-          },
-        })
-
-        if (error) {
-          console.error('Sign up error:', error)
-          // Handle specific Supabase errors
-          if (error.message.includes('Invalid email') || error.message.includes('email_address_invalid')) {
-            toast.error('Email validation failed. This might be a Supabase configuration issue.')
-            console.error('Email validation error details:', error)
-          } else if (error.message.includes('Password')) {
-            toast.error('Password must be at least 6 characters long')
-          } else if (error.message.includes('already registered')) {
-            toast.error('An account with this email already exists')
-          } else {
-            toast.error(`Sign up failed: ${error.message}`)
-          }
+        const result = await signUp(email, password, fullName)
+        if (result?.success) {
+          // Clear form fields immediately
+          resetForm()
+          
+          // Show success state
+          setShowSuccess(true)
+          
+          // Show success message
+          toast.success('Account created successfully! Please sign in to continue.')
+          
+          // Switch to sign in mode after a short delay
+          setTimeout(() => {
+            setIsSignUp(false)
+            setShowSuccess(false)
+          }, 2000)
+          
           return
-        }
-
-        if (data.user) {
-          // Profile is created automatically by the trigger, so we don't need to create it manually
-          // Just refresh the profile to get the latest data
-          try {
-            await refreshProfile()
-            toast.success('Account created successfully! Welcome to AuroraNotes!')
-          } catch (profileError) {
-            console.warn('Profile refresh failed:', profileError)
-            // Even if profile refresh fails, the account was created successfully
-            toast.success('Account created successfully! Welcome to AuroraNotes!')
-          }
         }
       } else {
-        console.log('Attempting signin with email:', email)
-        
-        const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(), // Normalize email
-          password,
-        })
-
-        if (error) {
-          console.error('Sign in error:', error)
-          if (error.message.includes('Invalid login credentials')) {
-            toast.error('Invalid email or password')
-          } else if (error.message.includes('Email not confirmed')) {
-            toast.error('Please check your email and confirm your account')
-          } else {
-            toast.error(`Sign in failed: ${error.message}`)
-          }
+        const result = await signIn(email, password)
+        if (result?.success) {
+          // Clear form fields on successful sign in
+          resetForm()
           return
         }
-
-        toast.success('Signed in successfully!')
-        await refreshProfile()
       }
     } catch (error) {
       console.error('Authentication error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Authentication failed'
-      if (errorMessage.includes('Supabase not configured')) {
-        toast.error('Please configure Supabase environment variables to use authentication features.')
-      } else {
-        toast.error(`Authentication failed: ${errorMessage}`)
-      }
+      // Error handling is already done in the hook
     } finally {
       setLoading(false)
     }
@@ -128,6 +108,14 @@ export function AuthForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {showSuccess && (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center">
+            <div className="text-green-800 dark:text-green-200 font-medium">
+              ✅ Account created successfully! Please sign in to continue.
+            </div>
+          </div>
+        )}
+        
         {isSignUp && (
           <div>
             <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -209,7 +197,7 @@ export function AuthForm() {
 
       <div className="mt-6 text-center">
         <button
-          onClick={() => setIsSignUp(!isSignUp)}
+          onClick={toggleAuthMode}
           className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
         >
           {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}

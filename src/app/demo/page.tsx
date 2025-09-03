@@ -95,7 +95,19 @@ export default function DemoPage() {
               Start Free Trial
               <ArrowRight className="ml-2 h-5 w-5" />
             </Link>
-            <button className="btn-secondary text-lg px-8 py-3">
+            <button 
+              onClick={() => {
+                setActiveTab('demo')
+                // Smooth scroll to the demo section
+                setTimeout(() => {
+                  const demoSection = document.querySelector('[data-demo-section]')
+                  if (demoSection) {
+                    demoSection.scrollIntoView({ behavior: 'smooth' })
+                  }
+                }, 100)
+              }}
+              className="btn-secondary text-lg px-8 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
               Watch Demo
             </button>
           </div>
@@ -131,7 +143,7 @@ export default function DemoPage() {
                 onClick={() => setActiveTab('demo')}
                 className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
                   activeTab === 'demo'
-                    ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow'
+                    ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow ring-2 ring-blue-500'
                     : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
@@ -177,7 +189,7 @@ export default function DemoPage() {
 
           {/* Live Demo Tab */}
           {activeTab === 'demo' && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-sm">
+            <div data-demo-section className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-sm">
               <div className="text-center">
                 <Bot className="h-16 w-16 text-blue-600 mx-auto mb-4" />
                 <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-4">
