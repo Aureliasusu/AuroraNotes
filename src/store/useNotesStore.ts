@@ -18,6 +18,7 @@ interface NotesState {
   deleteNote: (id: string) => Promise<boolean>
   togglePin: (id: string) => Promise<void>
   toggleArchive: (id: string) => Promise<void>
+  clearNotes: () => void
 }
 
 export const useNotesStore = create<NotesState>((set, get) => ({
@@ -157,6 +158,10 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     if (!note) return
     
     await get().updateNote(id, { is_archived: !note.is_archived })
+  },
+
+  clearNotes: () => {
+    set({ notes: [] })
   }
 }))
 

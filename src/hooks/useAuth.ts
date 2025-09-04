@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { User, Session } from '@supabase/supabase-js'
 import toast from 'react-hot-toast'
+import { useAuthStore } from '@/store/useAuthStore'
+import { useNotesStore } from '@/store/useNotesStore'
 
 interface AuthState {
   user: User | null
@@ -16,6 +18,17 @@ export function useAuth() {
     loading: true
   })
 
+  // Get Zustand store actions
+  const { 
+    setUser, 
+    setSession, 
+    setProfile, 
+    setLoading: setStoreLoading,
+    refreshProfile 
+  } = useAuthStore()
+  
+  const { fetchNotes, clearNotes } = useNotesStore()
+
   // Get initial session
   useEffect(() => {
     const getInitialSession = async () => {
@@ -26,14 +39,25 @@ export function useAuth() {
           session,
           loading: false
         })
+        
+        // Update store
+        setUser(session?.user ?? null)
+        setSession(session)
+        setStoreLoading(false)
+        
+        if (session?.user) {
+          await refreshProfile()
+          await fetchNotes()
+        }
       } catch (error) {
         console.error('Error getting initial session:', error)
         setAuthState(prev => ({ ...prev, loading: false }))
+        setStoreLoading(false)
       }
     }
 
     getInitialSession()
-  }, [])
+  }, [setUser, setSession, setStoreLoading, refreshProfile, fetchNotes])
 
   // Listen for auth changes
   useEffect(() => {
@@ -48,6 +72,12 @@ export function useAuth() {
             session: null,
             loading: false
           }))
+          
+          // Update store
+          setUser(null)
+          setSession(null)
+          setStoreLoading(false)
+          clearNotes()
           return
         }
         
@@ -57,17 +87,25 @@ export function useAuth() {
           session,
           loading: false
         })
+        
+        // Update store
+        setUser(session?.user ?? null)
+        setSession(session)
+        setStoreLoading(false)
 
-        if (event === 'SIGNED_IN') {
+        if (event === 'SIGNED_IN' && session?.user) {
           toast.success('Signed in successfully!')
+          await refreshProfile()
+          await fetchNotes()
         } else if (event === 'SIGNED_OUT') {
           toast.success('Signed out successfully!')
+          clearNotes() // Clear notes when user signs out
         }
       }
     )
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [setUser, setSession, setStoreLoading, refreshProfile, fetchNotes, clearNotes])
 
   // Sign up function
   const signUp = async (email: string, password: string, fullName?: string) => {
@@ -85,6 +123,12 @@ export function useAuth() {
       if (error) throw error
 
       if (data.user) {
+        // Clear any existing store data (user is not logged in yet)
+        setUser(null)
+        setSession(null)
+        setProfile(null)
+        clearNotes()
+        
         // Don't automatically set the user as logged in
         // The user needs to explicitly sign in
         toast.success('Account created successfully! Please sign in to continue.')
@@ -107,6 +151,14 @@ export function useAuth() {
 
       if (error) throw error
 
+      // Update store with user data
+      setUser(data.user)
+      setSession(data.session)
+      
+      // Fetch user profile and notes
+      await refreshProfile()
+      await fetchNotes()
+      
       toast.success('Signed in successfully!')
       return { success: true, user: data.user }
     } catch (error) {
@@ -121,6 +173,12 @@ export function useAuth() {
     try {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
+      
+      // Clear store data
+      setUser(null)
+      setSession(null)
+      setProfile(null)
+      clearNotes()
       
       toast.success('Signed out successfully!')
       return { success: true }
