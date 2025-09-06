@@ -2,8 +2,9 @@
 
 import { ReactNode } from 'react'
 import { useAuthStore } from '@/store/useAuthStore'
-import { LogOut, User, Settings, Moon, Sun } from 'lucide-react'
+import { LogOut, User, Settings } from 'lucide-react'
 import { useState } from 'react'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 interface DashboardLayoutProps {
   children: ReactNode
@@ -11,13 +12,7 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, profile, signOut } = useAuthStore()
-  const [isDarkMode, setIsDarkMode] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
-
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode)
-    document.documentElement.classList.toggle('dark')
-  }
 
   const handleSignOut = async () => {
     await signOut()
@@ -35,13 +30,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
 
           <div className="flex items-center space-x-4">
-            {/* Dark mode toggle */}
-            <button
-              onClick={toggleDarkMode}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </button>
+            {/* Theme toggle */}
+            <ThemeToggle />
 
             {/* User menu */}
             <div className="relative">

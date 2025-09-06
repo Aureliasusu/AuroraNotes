@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useNotesStore } from '@/store/useNotesStore'
-import { Save, Tag, X, Eye, Edit3 } from 'lucide-react'
+import { Save, Tag, X, Eye, Edit3, Maximize2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import toast from 'react-hot-toast'
 import { RichTextToolbar } from './RichTextToolbar'
+import { FullscreenEditor } from './FullscreenEditor'
 
 export function NoteEditor() {
   const { selectedNote, updateNote } = useNotesStore()
@@ -18,6 +19,7 @@ export function NoteEditor() {
   const [isEditing, setIsEditing] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [editorMode, setEditorMode] = useState<'markdown' | 'rich'>('rich')
+  const [showFullscreen, setShowFullscreen] = useState(false)
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>()
   const editorRef = useRef<HTMLDivElement>(null)
 
@@ -193,6 +195,14 @@ export function NoteEditor() {
               <Save className="h-4 w-4" />
               <span>Save</span>
             </button>
+            <button
+              onClick={() => setShowFullscreen(true)}
+              className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors flex items-center space-x-1"
+              title="Fullscreen editor"
+            >
+              <Maximize2 className="h-4 w-4" />
+              <span>Fullscreen</span>
+            </button>
           </div>
         </div>
 
@@ -303,6 +313,11 @@ export function NoteEditor() {
           </span>
         </div>
       </div>
+
+      {/* Fullscreen Editor */}
+      {showFullscreen && (
+        <FullscreenEditor onClose={() => setShowFullscreen(false)} />
+      )}
     </div>
   )
 }

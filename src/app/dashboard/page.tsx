@@ -5,9 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useNotesStore } from '@/store/useNotesStore'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
-import { NotesList } from '@/components/notes/NotesList'
-import { NoteEditor } from '@/components/notes/NoteEditor'
-import { AIAssistant } from '@/components/ai/AIAssistant'
+import { ResizableLayout } from '@/components/layout/ResizableLayout'
 
 export default function DashboardPage() {
   const { user, loading } = useAuthStore()
@@ -40,26 +38,8 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className="flex h-full">
-        {/* Sidebar with notes list */}
-        <div className="w-80 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <NotesList />
-        </div>
-
-        {/* Main content area */}
-        <div className="flex-1 flex flex-col">
-          <div className="flex-1 flex">
-            {/* Note editor */}
-            <div className="flex-1">
-              <NoteEditor />
-            </div>
-
-            {/* AI Assistant sidebar */}
-            <div className="w-96 border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-              <AIAssistant />
-            </div>
-          </div>
-        </div>
+      <div className="h-full">
+        <ResizableLayout />
       </div>
     </DashboardLayout>
   )
