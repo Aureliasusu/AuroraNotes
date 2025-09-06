@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { supabase } from '@/lib/supabase'
 import { Note } from '@/types/database'
 import { useAuthStore } from './useAuthStore'
+import toast from 'react-hot-toast'
 
 interface NotesState {
   notes: Note[]
@@ -18,6 +19,7 @@ interface NotesState {
   deleteNote: (id: string) => Promise<boolean>
   togglePin: (id: string) => Promise<void>
   toggleArchive: (id: string) => Promise<void>
+  reorderNotes: (noteIds: string[]) => Promise<void>
   clearNotes: () => void
 }
 
@@ -158,6 +160,26 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     if (!note) return
     
     await get().updateNote(id, { is_archived: !note.is_archived })
+  },
+
+  reorderNotes: async (noteIds) => {
+    // Temporarily disabled - only update local state until sort_order column is added
+    try {
+      const { notes } = get()
+      const reorderedNotes = noteIds.map(id => 
+        notes.find(note => note.id === id)
+      ).filter(Boolean) as Note[]
+      
+      const remainingNotes = notes.filter(note => 
+        !noteIds.includes(note.id)
+      )
+      
+      set({ notes: [...reorderedNotes, ...remainingNotes] })
+      toast.success('Notes reordered locally! (Database sync disabled until sort_order column is added)')
+    } catch (error) {
+      console.error('Error reordering notes:', error)
+      toast.error('Failed to reorder notes')
+    }
   },
 
   clearNotes: () => {

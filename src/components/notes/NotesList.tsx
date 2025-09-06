@@ -3,14 +3,140 @@
 import { useState, useEffect } from 'react'
 import { useNotesStore } from '@/store/useNotesStore'
 import { Note } from '@/types/database'
-import { Plus, Search, Pin, Archive, Trash2, Tag } from 'lucide-react'
+import { Plus, Search, Pin, Archive, Trash2, Tag, GripVertical, FileText } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import {
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { NoteTemplates } from './NoteTemplates'
+
+// Sortable Note Item Component
+function SortableNoteItem({ note, isSelected, onNoteClick, onTogglePin, onToggleArchive, onDelete }: {
+  note: Note
+  isSelected: boolean
+  onNoteClick: (note: Note) => void
+  onTogglePin: (e: React.MouseEvent, noteId: string) => void
+  onToggleArchive: (e: React.MouseEvent, noteId: string) => void
+  onDelete: (e: React.MouseEvent, noteId: string) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: note.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`p-3 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+        isSelected ? 'bg-blue-50 dark:bg-blue-900 border-l-4 border-l-blue-500' : ''
+      }`}
+      onClick={() => onNoteClick(note)}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-gray-900 dark:text-white truncate">
+            {note.title || 'Untitled Note'}
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+            {note.content?.replace(/<[^>]*>/g, '').substring(0, 100) || 'No content'}
+          </p>
+          <div className="flex items-center mt-2 space-x-2">
+            <span className="text-xs text-gray-400">
+              {formatDistanceToNow(new Date(note.updated_at), { addSuffix: true })}
+            </span>
+            {note.tags && note.tags.length > 0 && (
+              <div className="flex items-center space-x-1">
+                <Tag className="h-3 w-3 text-gray-400" />
+                <span className="text-xs text-gray-400">
+                  {note.tags.length} tag{note.tags.length > 1 ? 's' : ''}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-1 ml-2">
+          {/* Drag Handle */}
+          <div
+            {...attributes}
+            {...listeners}
+            className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded cursor-grab active:cursor-grabbing"
+          >
+            <GripVertical className="h-4 w-4 text-gray-400" />
+          </div>
+          
+          {/* Action Buttons */}
+          <button
+            onClick={(e) => onTogglePin(e, note.id)}
+            className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 ${
+              note.is_pinned ? 'text-yellow-500' : 'text-gray-400'
+            }`}
+            title={note.is_pinned ? 'Unpin note' : 'Pin note'}
+          >
+            <Pin className="h-4 w-4" />
+          </button>
+          
+          <button
+            onClick={(e) => onToggleArchive(e, note.id)}
+            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400"
+            title={note.is_archived ? 'Unarchive note' : 'Archive note'}
+          >
+            <Archive className="h-4 w-4" />
+          </button>
+          
+          <button
+            onClick={(e) => onDelete(e, note.id)}
+            className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900 text-gray-400 hover:text-red-500"
+            title="Delete note"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function NotesList() {
-  const { notes, loading, selectedNote, createNote, setSelectedNote, togglePin, toggleArchive, deleteNote } = useNotesStore()
+  const { notes, loading, selectedNote, createNote, setSelectedNote, togglePin, toggleArchive, deleteNote, reorderNotes } = useNotesStore()
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<'all' | 'pinned' | 'archived'>('all')
+  const [showTemplates, setShowTemplates] = useState(false)
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   const filteredNotes = notes.filter(note => {
     const matchesSearch = note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -21,6 +147,23 @@ export function NotesList() {
     
     return matchesSearch && matchesFilter
   })
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (active.id !== over?.id) {
+      const oldIndex = filteredNotes.findIndex(note => note.id === active.id)
+      const newIndex = filteredNotes.findIndex(note => note.id === over?.id)
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reorderedNotes = arrayMove(filteredNotes, oldIndex, newIndex)
+        
+        // Update the order in the store
+        await reorderNotes(reorderedNotes.map(note => note.id))
+        toast.success('Notes reordered successfully!')
+      }
+    }
+  }
 
   const handleCreateNote = async () => {
     const newNote = await createNote({
@@ -33,6 +176,21 @@ export function NotesList() {
 
     if (newNote) {
       toast.success('New note created!')
+    }
+  }
+
+  const handleSelectTemplate = async (template: any) => {
+    const newNote = await createNote({
+      title: template.name,
+      content: template.content,
+      tags: template.tags,
+      is_archived: false,
+      is_pinned: false,
+    })
+
+    if (newNote) {
+      toast.success(`Note created from ${template.name} template!`)
+      setShowTemplates(false)
     }
   }
 
@@ -71,12 +229,22 @@ export function NotesList() {
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Notes</h2>
-          <button
-            onClick={handleCreateNote}
-            className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowTemplates(true)}
+              className="p-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              title="Create from template"
+            >
+              <FileText className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleCreateNote}
+              className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              title="Create new note"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -143,77 +311,40 @@ export function NotesList() {
             </button>
           </div>
         ) : (
-          <div className="p-2 space-y-2">
-            {filteredNotes.map((note) => (
-              <div
-                key={note.id}
-                onClick={() => handleNoteClick(note)}
-                className={`p-3 rounded-lg cursor-pointer transition-all duration-200 ${
-                  selectedNote?.id === note.id
-                    ? 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700'
-                    : 'note-card hover:bg-gray-50 dark:hover:bg-gray-700'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-medium text-gray-900 dark:text-white line-clamp-1">
-                    {note.title}
-                  </h3>
-                  <div className="flex items-center space-x-1">
-                    {note.is_pinned && (
-                      <Pin className="h-3 w-3 text-yellow-500" />
-                    )}
-                    <button
-                      onClick={(e) => handleTogglePin(e, note.id)}
-                      className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                    >
-                      <Pin className="h-3 w-3 text-gray-400 hover:text-yellow-500" />
-                    </button>
-                    <button
-                      onClick={(e) => handleToggleArchive(e, note.id)}
-                      className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                    >
-                      <Archive className="h-3 w-3 text-gray-400 hover:text-blue-500" />
-                    </button>
-                    <button
-                      onClick={(e) => handleDeleteNote(e, note.id)}
-                      className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
-                    >
-                      <Trash2 className="h-3 w-3 text-gray-400 hover:text-red-500" />
-                    </button>
-                  </div>
-                </div>
-                
-                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-2">
-                  {truncateText(note.content)}
-                </p>
-                
-                {note.tags.length > 0 && (
-                  <div className="flex items-center space-x-1 mb-2">
-                    <Tag className="h-3 w-3 text-gray-400" />
-                    <div className="flex flex-wrap gap-1">
-                      {note.tags.slice(0, 2).map((tag, index) => (
-                        <span
-                          key={index}
-                          className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                      {note.tags.length > 2 && (
-                        <span className="text-xs text-gray-500">+{note.tags.length - 2}</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {formatDistanceToNow(new Date(note.updated_at), { addSuffix: true })}
-                </p>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={filteredNotes.map(note => note.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredNotes.map((note) => (
+                  <SortableNoteItem
+                    key={note.id}
+                    note={note}
+                    isSelected={selectedNote?.id === note.id}
+                    onNoteClick={handleNoteClick}
+                    onTogglePin={handleTogglePin}
+                    onToggleArchive={handleToggleArchive}
+                    onDelete={handleDeleteNote}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
+
+      {/* Templates Modal */}
+      {showTemplates && (
+        <NoteTemplates
+          onSelectTemplate={handleSelectTemplate}
+          onClose={() => setShowTemplates(false)}
+        />
+      )}
     </div>
   )
 }
