@@ -3,13 +3,11 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useNotesStore } from '@/store/useNotesStore'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
-import { ResizableLayout } from '@/components/layout/ResizableLayout'
+import { UserProfileSettings } from '@/components/settings/UserProfileSettings'
 
-export default function DashboardPage() {
+export default function SettingsPage() {
   const { user, loading } = useAuthStore()
-  const { fetchNotes } = useNotesStore()
   const router = useRouter()
 
   useEffect(() => {
@@ -17,12 +15,6 @@ export default function DashboardPage() {
       router.push('/')
     }
   }, [user, loading, router])
-
-  useEffect(() => {
-    if (user) {
-      fetchNotes()
-    }
-  }, [user, fetchNotes])
 
   if (loading) {
     return (
@@ -38,10 +30,18 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className="h-full">
-        <ResizableLayout />
+      <div className="h-full p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
+              Manage your account settings and preferences
+            </p>
+          </div>
+          
+          <UserProfileSettings />
+        </div>
       </div>
     </DashboardLayout>
   )
 }
-

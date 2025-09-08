@@ -1,9 +1,11 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useRef, useEffect } from 'react'
 import { useAuthStore } from '@/store/useAuthStore'
-import { LogOut, User, Settings, Moon, Sun } from 'lucide-react'
+import { LogOut, User, Settings } from 'lucide-react'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 interface DashboardLayoutProps {
   children: ReactNode
@@ -11,17 +13,38 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, profile, signOut } = useAuthStore()
-  const [isDarkMode, setIsDarkMode] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const router = useRouter()
+  const menuRef = useRef<HTMLDivElement>(null)
 
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode)
-    document.documentElement.classList.toggle('dark')
-  }
+  // Debug: Log profile data
+  console.log('DashboardLayout - Profile data:', profile)
 
   const handleSignOut = async () => {
     await signOut()
   }
+
+  const handleNavigateToSettings = () => {
+    setShowUserMenu(false)
+    router.push('/settings')
+  }
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false)
+      }
+    }
+
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showUserMenu])
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
@@ -35,22 +58,29 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
 
           <div className="flex items-center space-x-4">
-            {/* Dark mode toggle */}
-            <button
-              onClick={toggleDarkMode}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            >
-              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </button>
+            {/* Theme toggle */}
+            <ThemeToggle />
 
             {/* User menu */}
-            <div className="relative">
+            <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium">
-                  {profile?.full_name?.[0] || user?.email?.[0] || 'U'}
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-medium overflow-hidden">
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.log('Avatar image failed to load:', profile.avatar_url)
+                        e.currentTarget.style.display = 'none'
+                      }}
+                    />
+                  ) : (
+                    profile?.full_name?.[0] || user?.email?.[0] || 'U'
+                  )}
                 </div>
                 <span className="hidden md:block text-sm font-medium text-gray-700 dark:text-gray-300">
                   {profile?.full_name || user?.email}
@@ -68,12 +98,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     </p>
                   </div>
                   
-                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2">
-                    <User className="h-4 w-4" />
-                    <span>Profile</span>
-                  </button>
-                  
-                  <button className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2">
+                  <button 
+                    onClick={handleNavigateToSettings}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
+                  >
                     <Settings className="h-4 w-4" />
                     <span>Settings</span>
                   </button>
