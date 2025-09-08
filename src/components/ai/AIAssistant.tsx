@@ -36,29 +36,29 @@ export function AIAssistant() {
     setLoading(true)
 
     try {
-      // Simulate AI analysis (replace with actual OpenAI API call)
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      const mockAnalysis: AIAnalysis = {
-        summary: `This note appears to be about ${selectedNote.title.toLowerCase()}. It contains ${selectedNote.content.split(' ').length} words and covers various aspects of the topic.`,
-        keyPoints: [
-          'Key point 1 from the note content',
-          'Important insight 2',
-          'Main takeaway 3',
-          'Critical information 4'
-        ],
-        todoItems: [
-          'Action item 1 based on content',
-          'Follow-up task 2',
-          'Next steps 3'
-        ],
-        sentiment: 'positive'
+      // Call real OpenAI API
+      const response = await fetch('/api/ai/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: selectedNote.content,
+          noteId: selectedNote.id,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to analyze note')
       }
 
-      setAnalysis(mockAnalysis)
+      const { analysis } = await response.json()
+      setAnalysis(analysis)
       toast.success('Note analysis complete!')
     } catch (error) {
-      toast.error('Failed to analyze note')
+      console.error('Analysis error:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to analyze note')
     } finally {
       setLoading(false)
       setIsAnalyzing(false)
@@ -73,11 +73,37 @@ export function AIAssistant() {
     setChatMessage('')
     setChatHistory(prev => [...prev, { role: 'user', content: userMessage }])
 
-    // Simulate AI response (replace with actual OpenAI API call)
-    setTimeout(() => {
-      const aiResponse = `Based on your note "${selectedNote.title}", here's what I can tell you about "${userMessage}": [AI response would go here]`
+    try {
+      // Call real OpenAI API for chat
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userMessage,
+          noteContent: selectedNote.content,
+          noteTitle: selectedNote.title,
+          chatHistory: chatHistory,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to get AI response')
+      }
+
+      const { response: aiResponse } = await response.json()
       setChatHistory(prev => [...prev, { role: 'assistant', content: aiResponse }])
-    }, 1000)
+    } catch (error) {
+      console.error('Chat error:', error)
+      toast.error('Failed to get AI response')
+      // Add error message to chat
+      setChatHistory(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'Sorry, I encountered an error. Please try again.' 
+      }])
+    }
   }
 
   const getSentimentColor = (sentiment: string) => {
