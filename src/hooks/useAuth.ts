@@ -190,20 +190,34 @@ export function useAuth() {
   }
 
   // Update user profile
-  const updateProfile = async (updates: { full_name?: string; avatar_url?: string }) => {
+  const updateProfile = async (updates: { 
+    data?: {
+      full_name?: string
+      avatar_url?: string
+      bio?: string
+      website?: string
+      location?: string
+    }
+  }) => {
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: updates
-      })
+      const { user } = authState
+      if (!user) throw new Error('User not authenticated')
+
+      // Update profiles table directly
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates.data)
+        .eq('id', user.id)
 
       if (error) throw error
 
-      toast.success('Profile updated successfully!')
+      // Refresh profile data in store
+      await refreshProfile()
+      
       return { success: true }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Profile update failed'
-      toast.error(errorMessage)
-      return { success: false, error: errorMessage }
+      throw new Error(errorMessage)
     }
   }
 

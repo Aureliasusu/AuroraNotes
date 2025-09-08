@@ -19,8 +19,14 @@ import {
   Link,
   Image,
   Undo,
-  Redo
+  Redo,
+  Table,
+  Minus,
+  Plus,
+  Upload
 } from 'lucide-react'
+import { ColorPicker } from '../ui/ColorPicker'
+import { TableInsertDialog } from '../ui/TableInsertDialog'
 
 interface RichTextToolbarProps {
   onFormat: (format: string, value?: string) => void
@@ -29,6 +35,7 @@ interface RichTextToolbarProps {
   onRedo: () => void
   canUndo: boolean
   canRedo: boolean
+  onImageUpload?: (file: File) => void
 }
 
 export function RichTextToolbar({ 
@@ -37,29 +44,26 @@ export function RichTextToolbar({
   onUndo, 
   onRedo, 
   canUndo, 
-  canRedo 
+  canRedo,
+  onImageUpload
 }: RichTextToolbarProps) {
-  const [showColorPicker, setShowColorPicker] = useState(false)
-  const [showHighlightPicker, setShowHighlightPicker] = useState(false)
   const [showLinkDialog, setShowLinkDialog] = useState(false)
+  const [showFontSize, setShowFontSize] = useState(false)
+  const [showTableDialog, setShowTableDialog] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkText, setLinkText] = useState('')
-  const colorPickerRef = useRef<HTMLDivElement>(null)
+  const [currentTextColor, setCurrentTextColor] = useState('#000000')
+  const [currentHighlightColor, setCurrentHighlightColor] = useState('#FFFF00')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const colors = [
-    '#000000', '#333333', '#666666', '#999999', '#CCCCCC', '#FFFFFF',
-    '#FF0000', '#FF6600', '#FFCC00', '#00FF00', '#0066FF', '#6600FF',
-    '#FF0066', '#FF3366', '#FF6699', '#FF99CC', '#FFCCFF', '#CC99FF'
-  ]
-
-  const handleColorSelect = (color: string) => {
+  const handleTextColorSelect = (color: string) => {
+    setCurrentTextColor(color)
     onFormat('foreColor', color)
-    setShowColorPicker(false)
   }
 
-  const handleHighlightSelect = (color: string) => {
+  const handleHighlightColorSelect = (color: string) => {
+    setCurrentHighlightColor(color)
     onFormat('backColor', color)
-    setShowHighlightPicker(false)
   }
 
   const handleLinkInsert = () => {
@@ -70,6 +74,50 @@ export function RichTextToolbar({
       setShowLinkDialog(false)
     }
   }
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file && onImageUpload) {
+      onImageUpload(file)
+    }
+  }
+
+  const handleTableInsert = (tableHtml: string) => {
+    onInsert('html', tableHtml)
+  }
+
+  const insertCodeBlock = () => {
+    const codeHtml = `
+      <pre style="background: #f4f4f4; padding: 10px; border-radius: 4px; margin: 10px 0; overflow-x: auto;">
+        <code>// Your code here</code>
+      </pre>
+    `
+    onInsert('html', codeHtml)
+  }
+
+  const insertQuote = () => {
+    const quoteHtml = `
+      <blockquote style="border-left: 4px solid #ccc; margin: 10px 0; padding-left: 16px; font-style: italic; color: #666;">
+        Your quote here
+      </blockquote>
+    `
+    onInsert('html', quoteHtml)
+  }
+
+  const insertHorizontalRule = () => {
+    onInsert('html', '<hr style="margin: 20px 0; border: none; border-top: 1px solid #ccc;">')
+  }
+
+  const fontSizeOptions = [
+    { value: '12px', label: '12px' },
+    { value: '14px', label: '14px' },
+    { value: '16px', label: '16px' },
+    { value: '18px', label: '18px' },
+    { value: '20px', label: '20px' },
+    { value: '24px', label: '24px' },
+    { value: '28px', label: '28px' },
+    { value: '32px', label: '32px' }
+  ]
 
   const ToolbarButton = ({ 
     onClick, 
@@ -156,7 +204,34 @@ export function RichTextToolbar({
           </select>
         </div>
 
-        {/* Lists */}
+        {/* Font Size */}
+        <div className="flex items-center space-x-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
+          <div className="relative">
+            <ToolbarButton
+              onClick={() => setShowFontSize(!showFontSize)}
+              icon={Type}
+              title="Font Size"
+            />
+            {showFontSize && (
+              <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-lg z-10">
+                {fontSizeOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      onFormat('fontSize', option.value)
+                      setShowFontSize(false)
+                    }}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Lists & Blocks */}
         <div className="flex items-center space-x-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
           <ToolbarButton
             onClick={() => onFormat('insertUnorderedList')}
@@ -169,9 +244,24 @@ export function RichTextToolbar({
             title="Numbered List"
           />
           <ToolbarButton
-            onClick={() => onFormat('formatBlock', 'blockquote')}
+            onClick={insertQuote}
             icon={Quote}
-            title="Quote"
+            title="Quote Block"
+          />
+          <ToolbarButton
+            onClick={insertCodeBlock}
+            icon={Code}
+            title="Code Block"
+          />
+          <ToolbarButton
+            onClick={() => setShowTableDialog(true)}
+            icon={Table}
+            title="Insert Table"
+          />
+          <ToolbarButton
+            onClick={insertHorizontalRule}
+            icon={Minus}
+            title="Horizontal Rule"
           />
         </div>
 
@@ -196,67 +286,34 @@ export function RichTextToolbar({
 
         {/* Colors */}
         <div className="flex items-center space-x-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
-          <div className="relative">
-            <ToolbarButton
-              onClick={() => setShowColorPicker(!showColorPicker)}
-              icon={Palette}
-              title="Text Color"
-            />
-            {showColorPicker && (
-              <div
-                ref={colorPickerRef}
-                className="absolute top-full left-0 mt-1 p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-lg z-10"
-              >
-                <div className="grid grid-cols-6 gap-1">
-                  {colors.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => handleColorSelect(color)}
-                      className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform"
-                      style={{ backgroundColor: color }}
-                      title={color}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="relative">
-            <ToolbarButton
-              onClick={() => setShowHighlightPicker(!showHighlightPicker)}
-              icon={Highlighter}
-              title="Highlight Color"
-            />
-            {showHighlightPicker && (
-              <div className="absolute top-full left-0 mt-1 p-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded shadow-lg z-10">
-                <div className="grid grid-cols-6 gap-1">
-                  {colors.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => handleHighlightSelect(color)}
-                      className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform"
-                      style={{ backgroundColor: color }}
-                      title={color}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Code */}
-        <div className="flex items-center space-x-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
-          <ToolbarButton
-            onClick={() => onFormat('formatBlock', 'pre')}
-            icon={Code}
-            title="Code Block"
+          <ColorPicker
+            onColorSelect={handleTextColorSelect}
+            currentColor={currentTextColor}
+            title="Text Color"
+            type="text"
+          />
+          <ColorPicker
+            onColorSelect={handleHighlightColorSelect}
+            currentColor={currentHighlightColor}
+            title="Highlight Color"
+            type="highlight"
           />
         </div>
 
         {/* Insert */}
         <div className="flex items-center space-x-1">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
+          <ToolbarButton
+            onClick={() => fileInputRef.current?.click()}
+            icon={Image}
+            title="Insert Image"
+          />
           <div className="relative">
             <ToolbarButton
               onClick={() => setShowLinkDialog(true)}
@@ -300,6 +357,13 @@ export function RichTextToolbar({
           </div>
         </div>
       </div>
+
+      {/* Table Insert Dialog */}
+      <TableInsertDialog
+        isOpen={showTableDialog}
+        onClose={() => setShowTableDialog(false)}
+        onInsert={handleTableInsert}
+      />
     </div>
   )
 }

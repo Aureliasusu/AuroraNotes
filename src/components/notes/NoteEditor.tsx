@@ -9,6 +9,7 @@ import rehypeHighlight from 'rehype-highlight'
 import toast from 'react-hot-toast'
 import { RichTextToolbar } from './RichTextToolbar'
 import { FullscreenEditor } from './FullscreenEditor'
+import { EnhancedRichTextEditor } from './EnhancedRichTextEditor'
 
 export function NoteEditor() {
   const { selectedNote, updateNote } = useNotesStore()
@@ -21,7 +22,6 @@ export function NoteEditor() {
   const [editorMode, setEditorMode] = useState<'markdown' | 'rich'>('rich')
   const [showFullscreen, setShowFullscreen] = useState(false)
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>()
-  const editorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (selectedNote) {
@@ -84,53 +84,6 @@ export function NoteEditor() {
     }
   }
 
-  // Rich text editor functions
-  const handleFormat = (format: string, value?: string) => {
-    if (editorRef.current) {
-      document.execCommand(format, false, value)
-      editorRef.current.focus()
-    }
-  }
-
-  const handleInsert = (type: string, value?: string) => {
-    if (editorRef.current) {
-      if (type === 'link' && value) {
-        const [text, url] = value.split('|')
-        const linkHtml = `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`
-        document.execCommand('insertHTML', false, linkHtml)
-      }
-      editorRef.current.focus()
-    }
-  }
-
-  const handleUndo = () => {
-    if (editorRef.current) {
-      document.execCommand('undo')
-      editorRef.current.focus()
-    }
-  }
-
-  const handleRedo = () => {
-    if (editorRef.current) {
-      document.execCommand('redo')
-      editorRef.current.focus()
-    }
-  }
-
-  const handleEditorChange = () => {
-    if (editorRef.current) {
-      const newContent = editorRef.current.innerHTML
-      setContent(newContent)
-    }
-  }
-
-  const canUndo = () => {
-    return document.queryCommandEnabled('undo')
-  }
-
-  const canRedo = () => {
-    return document.queryCommandEnabled('redo')
-  }
 
   if (!selectedNote) {
     return (
@@ -260,30 +213,14 @@ export function NoteEditor() {
           </div>
         ) : (
           <div className="flex-1 flex flex-col">
-            {/* Rich Text Toolbar */}
-            {editorMode === 'rich' && (
-              <RichTextToolbar
-                onFormat={handleFormat}
-                onInsert={handleInsert}
-                onUndo={handleUndo}
-                onRedo={handleRedo}
-                canUndo={canUndo()}
-                canRedo={canRedo()}
-              />
-            )}
-            
             {/* Editor */}
             <div className="flex-1 overflow-hidden">
               {editorMode === 'rich' ? (
-                <div
-                  ref={editorRef}
-                  contentEditable
-                  onInput={handleEditorChange}
-                  onKeyDown={handleKeyDown}
-                  dangerouslySetInnerHTML={{ __html: content }}
-                  className="w-full h-full p-6 overflow-y-auto bg-transparent text-gray-900 dark:text-white focus:outline-none"
-                  style={{ minHeight: '200px' }}
-                  suppressContentEditableWarning={true}
+                <EnhancedRichTextEditor
+                  content={content}
+                  onChange={setContent}
+                  placeholder="Start writing your note... (Use toolbar for formatting)"
+                  className="h-full"
                 />
               ) : (
                 <textarea
