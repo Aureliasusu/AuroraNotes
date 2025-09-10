@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useNotesStore } from '@/store/useNotesStore'
 import { Note } from '@/types/database'
-import { Plus, Search, Pin, Archive, Trash2, Tag, GripVertical, FileText } from 'lucide-react'
+import { Plus, Search, Pin, Archive, Trash2, Tag, GripVertical, FileText, Star, BarChart3, Folder, Move } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
 import {
@@ -26,14 +26,21 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { NoteTemplates } from './NoteTemplates'
+import { FolderManager } from './FolderManager'
+import { AdvancedSearch } from './AdvancedSearch'
+import { NoteStats } from './NoteStats'
+import { MoveToFolderDialog } from './MoveToFolderDialog'
+import { AddNotesToFolderDialog } from './AddNotesToFolderDialog'
 
 // Sortable Note Item Component
-function SortableNoteItem({ note, isSelected, onNoteClick, onTogglePin, onToggleArchive, onDelete }: {
+function SortableNoteItem({ note, isSelected, onNoteClick, onTogglePin, onToggleArchive, onToggleStar, onMoveToFolder, onDelete }: {
   note: Note
   isSelected: boolean
   onNoteClick: (note: Note) => void
   onTogglePin: (e: React.MouseEvent, noteId: string) => void
   onToggleArchive: (e: React.MouseEvent, noteId: string) => void
+  onToggleStar: (e: React.MouseEvent, noteId: string) => void
+  onMoveToFolder: (noteId: string) => void
   onDelete: (e: React.MouseEvent, noteId: string) => void
 }) {
   const {
@@ -83,7 +90,7 @@ function SortableNoteItem({ note, isSelected, onNoteClick, onTogglePin, onToggle
           </div>
         </div>
         
-        <div className="flex items-center space-x-1 ml-2">
+          <div className="flex items-center space-x-1 ml-2">
           {/* Drag Handle */}
           <div
             {...attributes}
@@ -94,6 +101,16 @@ function SortableNoteItem({ note, isSelected, onNoteClick, onTogglePin, onToggle
           </div>
           
           {/* Action Buttons */}
+          <button
+            onClick={(e) => onToggleStar(e, note.id)}
+            className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 ${
+              note.is_starred ? 'text-yellow-500' : 'text-gray-400'
+            }`}
+            title={note.is_starred ? 'Unstar note' : 'Star note'}
+          >
+            <Star className="h-4 w-4" />
+          </button>
+          
           <button
             onClick={(e) => onTogglePin(e, note.id)}
             className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 ${
@@ -113,6 +130,14 @@ function SortableNoteItem({ note, isSelected, onNoteClick, onTogglePin, onToggle
           </button>
           
           <button
+            onClick={() => onMoveToFolder(note.id)}
+            className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-400"
+            title="Move to folder"
+          >
+            <Move className="h-4 w-4" />
+          </button>
+          
+          <button
             onClick={(e) => onDelete(e, note.id)}
             className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900 text-gray-400 hover:text-red-500"
             title="Delete note"
@@ -126,10 +151,18 @@ function SortableNoteItem({ note, isSelected, onNoteClick, onTogglePin, onToggle
 }
 
 export function NotesList() {
-  const { notes, loading, selectedNote, createNote, setSelectedNote, togglePin, toggleArchive, deleteNote, reorderNotes } = useNotesStore()
+  const { notes, loading, selectedNote, createNote, setSelectedNote, togglePin, toggleArchive, toggleStar, moveToFolder, deleteNote, reorderNotes } = useNotesStore()
   const [searchTerm, setSearchTerm] = useState('')
-  const [filter, setFilter] = useState<'all' | 'pinned' | 'archived'>('all')
+  const [filter, setFilter] = useState<'all' | 'pinned' | 'archived' | 'starred'>('all')
   const [showTemplates, setShowTemplates] = useState(false)
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
+  const [showNoteStats, setShowNoteStats] = useState(false)
+  const [searchResults, setSearchResults] = useState<Note[] | null>(null)
+  const [showMoveDialog, setShowMoveDialog] = useState(false)
+  const [noteToMove, setNoteToMove] = useState<string | null>(null)
+  const [showAddNotesDialog, setShowAddNotesDialog] = useState(false)
+  const [targetFolder, setTargetFolder] = useState<{ id: string; name: string } | null>(null)
   
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -138,14 +171,18 @@ export function NotesList() {
     })
   )
 
-  const filteredNotes = notes.filter(note => {
+  const filteredNotes = (searchResults || notes).filter(note => {
     const matchesSearch = note.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          note.content.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesFilter = filter === 'all' || 
                          (filter === 'pinned' && note.is_pinned) ||
-                         (filter === 'archived' && note.is_archived)
+                         (filter === 'archived' && note.is_archived) ||
+                         (filter === 'starred' && note.is_starred)
+    const matchesFolder = selectedFolderId === null || 
+                         (selectedFolderId === 'starred' && note.is_starred) ||
+                         note.folder_id === selectedFolderId
     
-    return matchesSearch && matchesFilter
+    return matchesSearch && matchesFilter && matchesFolder
   })
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -208,6 +245,11 @@ export function NotesList() {
     await toggleArchive(noteId)
   }
 
+  const handleToggleStar = async (e: React.MouseEvent, noteId: string) => {
+    e.stopPropagation()
+    await toggleStar(noteId)
+  }
+
   const handleDeleteNote = async (e: React.MouseEvent, noteId: string) => {
     e.stopPropagation()
     if (confirm('Are you sure you want to delete this note?')) {
@@ -216,6 +258,41 @@ export function NotesList() {
         toast.success('Note deleted successfully')
       }
     }
+  }
+
+  const handleFolderSelect = (folderId: string | null) => {
+    setSelectedFolderId(folderId)
+    setSearchResults(null) // Clear search results when changing folders
+  }
+
+  const handleSearchResults = (results: Note[]) => {
+    setSearchResults(results)
+    setShowAdvancedSearch(false)
+  }
+
+  const clearSearch = () => {
+    setSearchResults(null)
+    setSearchTerm('')
+  }
+
+  const handleMoveToFolder = (noteId: string) => {
+    setNoteToMove(noteId)
+    setShowMoveDialog(true)
+  }
+
+  const handleCloseMoveDialog = () => {
+    setShowMoveDialog(false)
+    setNoteToMove(null)
+  }
+
+  const handleAddNotesToFolder = (folderId: string, folderName: string) => {
+    setTargetFolder({ id: folderId, name: folderName })
+    setShowAddNotesDialog(true)
+  }
+
+  const handleCloseAddNotesDialog = () => {
+    setShowAddNotesDialog(false)
+    setTargetFolder(null)
   }
 
   const truncateText = (text: string, maxLength: number = 100) => {
@@ -230,6 +307,20 @@ export function NotesList() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Notes</h2>
           <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowNoteStats(true)}
+              className="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+              title="View statistics"
+            >
+              <BarChart3 className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setShowAdvancedSearch(true)}
+              className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              title="Advanced search"
+            >
+              <Search className="h-4 w-4" />
+            </button>
             <button
               onClick={() => setShowTemplates(true)}
               className="p-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
@@ -255,8 +346,17 @@ export function NotesList() {
             placeholder="Search notes..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          {searchResults && (
+            <button
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              title="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* Filters */}
@@ -280,6 +380,17 @@ export function NotesList() {
             }`}
           >
             Pinned
+          </button>
+          <button
+            onClick={() => setFilter('starred')}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+              filter === 'starred'
+                ? 'bg-yellow-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            <Star className="h-3 w-3 inline mr-1" />
+            Starred
           </button>
           <button
             onClick={() => setFilter('archived')}
@@ -329,6 +440,8 @@ export function NotesList() {
                     onNoteClick={handleNoteClick}
                     onTogglePin={handleTogglePin}
                     onToggleArchive={handleToggleArchive}
+                    onToggleStar={handleToggleStar}
+                    onMoveToFolder={handleMoveToFolder}
                     onDelete={handleDeleteNote}
                   />
                 ))}
@@ -338,11 +451,56 @@ export function NotesList() {
         )}
       </div>
 
-      {/* Templates Modal */}
+      {/* Folder Manager */}
+      <div className="border-t border-gray-200 dark:border-gray-700 p-4">
+        <FolderManager
+          selectedFolderId={selectedFolderId}
+          onFolderSelect={handleFolderSelect}
+          onFolderCreate={() => {}} // Will be implemented
+          onFolderUpdate={() => {}} // Will be implemented
+          onFolderDelete={() => {}} // Will be implemented
+          onAddNotesToFolder={handleAddNotesToFolder}
+        />
+      </div>
+
+      {/* Modals */}
       {showTemplates && (
         <NoteTemplates
           onSelectTemplate={handleSelectTemplate}
           onClose={() => setShowTemplates(false)}
+        />
+      )}
+
+      {showAdvancedSearch && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <AdvancedSearch
+            onSearchResults={handleSearchResults}
+            onClose={() => setShowAdvancedSearch(false)}
+          />
+        </div>
+      )}
+
+      {showNoteStats && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <NoteStats
+            onClose={() => setShowNoteStats(false)}
+          />
+        </div>
+      )}
+
+      {showMoveDialog && noteToMove && (
+        <MoveToFolderDialog
+          noteId={noteToMove}
+          currentFolderId={notes.find(n => n.id === noteToMove)?.folder_id || null}
+          onClose={handleCloseMoveDialog}
+        />
+      )}
+
+      {showAddNotesDialog && targetFolder && (
+        <AddNotesToFolderDialog
+          folderId={targetFolder.id}
+          folderName={targetFolder.name}
+          onClose={handleCloseAddNotesDialog}
         />
       )}
     </div>

@@ -19,6 +19,8 @@ interface NotesState {
   deleteNote: (id: string) => Promise<boolean>
   togglePin: (id: string) => Promise<void>
   toggleArchive: (id: string) => Promise<void>
+  toggleStar: (id: string) => Promise<void>
+  moveToFolder: (id: string, folderId: string | null) => Promise<void>
   reorderNotes: (noteIds: string[]) => Promise<void>
   clearNotes: () => void
 }
@@ -160,6 +162,28 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     if (!note) return
     
     await get().updateNote(id, { is_archived: !note.is_archived })
+  },
+
+  toggleStar: async (id) => {
+    const note = get().notes.find(n => n.id === id)
+    if (!note) return
+    
+    try {
+      await get().updateNote(id, { is_starred: !note.is_starred })
+      toast.success(note.is_starred ? 'Note unstarred' : 'Note starred')
+    } catch (error) {
+      toast.error('Failed to update star status')
+    }
+  },
+
+  moveToFolder: async (id, folderId) => {
+    try {
+      await get().updateNote(id, { folder_id: folderId })
+      const folderName = folderId ? 'folder' : 'unorganized'
+      toast.success(`Note moved to ${folderName}`)
+    } catch (error) {
+      toast.error('Failed to move note')
+    }
   },
 
   reorderNotes: async (noteIds) => {

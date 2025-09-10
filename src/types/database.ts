@@ -44,6 +44,10 @@ export interface Database {
           tags: string[]
           is_archived: boolean
           is_pinned: boolean
+          is_starred: boolean
+          folder_id: string | null
+          word_count: number
+          reading_time: number
           created_at: string
           updated_at: string
         }
@@ -55,6 +59,10 @@ export interface Database {
           tags?: string[]
           is_archived?: boolean
           is_pinned?: boolean
+          is_starred?: boolean
+          folder_id?: string | null
+          word_count?: number
+          reading_time?: number
           created_at?: string
           updated_at?: string
         }
@@ -66,6 +74,39 @@ export interface Database {
           tags?: string[]
           is_archived?: boolean
           is_pinned?: boolean
+          is_starred?: boolean
+          folder_id?: string | null
+          word_count?: number
+          reading_time?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      folders: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          color: string
+          parent_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          color?: string
+          parent_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          color?: string
+          parent_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -114,5 +155,6 @@ export interface Database {
 
 export type Profile = Database['public']['Tables']['profiles']['Row']
 export type Note = Database['public']['Tables']['notes']['Row']
+export type Folder = Database['public']['Tables']['folders']['Row']
 export type AIAnalysis = Database['public']['Tables']['ai_analysis']['Row']
 
