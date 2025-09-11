@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useNotesStore } from '@/store/useNotesStore'
-import { Save, Tag, X, Eye, Edit3, Maximize2 } from 'lucide-react'
+import { useCollaborativeEditing } from '@/hooks/useCollaborativeEditing'
+import { useUserPresence } from '@/hooks/useUserPresence'
+import { Save, Tag, X, Eye, Edit3, Maximize2, Users } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -10,6 +12,7 @@ import toast from 'react-hot-toast'
 import { RichTextToolbar } from './RichTextToolbar'
 import { FullscreenEditor } from './FullscreenEditor'
 import { EnhancedRichTextEditor } from './EnhancedRichTextEditor'
+import { CollaborationStatus } from '../collaboration/CollaborationStatus'
 
 export function NoteEditor() {
   const { selectedNote, updateNote } = useNotesStore()
@@ -18,6 +21,22 @@ export function NoteEditor() {
   const [tags, setTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState('')
   const [isEditing, setIsEditing] = useState(false)
+  
+  // Collaborative editing functionality
+  const {
+    editingUsers,
+    isEditing: isCollaborativeEditing,
+    lastSaved,
+    startEditing,
+    stopEditing,
+    saveNoteContent,
+    broadcastCursorMove,
+    broadcastUserTyping
+  } = useCollaborativeEditing(selectedNote?.id)
+
+  // Get online status from user presence
+  const { isOnline } = useUserPresence(selectedNote?.id)
+
   const [showPreview, setShowPreview] = useState(false)
   const [editorMode, setEditorMode] = useState<'markdown' | 'rich'>('rich')
   const [showFullscreen, setShowFullscreen] = useState(false)
@@ -29,13 +48,17 @@ export function NoteEditor() {
       setContent(selectedNote.content)
       setTags(selectedNote.tags)
       setIsEditing(false)
+      // Start collaborative editing when note is selected
+      startEditing()
     } else {
       setTitle('')
       setContent('')
       setTags([])
       setIsEditing(false)
+      // Stop collaborative editing when no note is selected
+      stopEditing()
     }
-  }, [selectedNote])
+  }, [selectedNote, startEditing, stopEditing])
 
   const handleAutoSave = async () => {
     if (!selectedNote) return
@@ -46,6 +69,9 @@ export function NoteEditor() {
         content,
         tags,
       })
+      
+      // Save content for collaborative editing
+      await saveNoteContent(content)
     } catch (error) {
       toast.error('Failed to save note')
     }
@@ -82,6 +108,19 @@ export function NoteEditor() {
     if (e.key === 'Enter' && e.metaKey) {
       setShowPreview(!showPreview)
     }
+  }
+
+  // Handle content change for collaborative editing
+  const handleContentChange = (newContent: string) => {
+    setContent(newContent)
+    // Broadcast user typing
+    broadcastUserTyping()
+  }
+
+  // Handle cursor movement for collaborative editing
+  const handleCursorMove = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const target = e.target as HTMLTextAreaElement
+    broadcastCursorMove(target.selectionStart)
   }
 
 
@@ -197,6 +236,15 @@ export function NoteEditor() {
         </div>
       </div>
 
+      {/* Collaboration Status */}
+      {selectedNote && (
+        <CollaborationStatus
+          editingUsers={editingUsers}
+          isOnline={isOnline}
+          lastSaved={lastSaved}
+        />
+      )}
+
       {/* Editor Content */}
       <div className="flex-1 overflow-hidden flex flex-col">
         {showPreview ? (
@@ -218,15 +266,17 @@ export function NoteEditor() {
               {editorMode === 'rich' ? (
                 <EnhancedRichTextEditor
                   content={content}
-                  onChange={setContent}
+                  onChange={handleContentChange}
                   placeholder="Start writing your note... (Use toolbar for formatting)"
                   className="h-full"
                 />
               ) : (
                 <textarea
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
+                  onChange={(e) => handleContentChange(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  onSelect={handleCursorMove}
+                  onKeyUp={handleCursorMove}
                   placeholder="Start writing your note... (Use Markdown for formatting, Cmd+Enter for preview)"
                   className="w-full h-full p-6 resize-none bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 font-mono text-sm leading-relaxed"
                 />

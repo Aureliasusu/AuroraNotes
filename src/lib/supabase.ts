@@ -56,6 +56,11 @@ if (!isValidHttpUrl(rawSupabaseUrl) || !rawSupabaseAnonKey) {
 			autoRefreshToken: true,
 			persistSession: true,
 			detectSessionInUrl: true
+		},
+		realtime: {
+			params: {
+				eventsPerSecond: 10
+			}
 		}
 	})
 }

@@ -22,7 +22,7 @@ export function ColorPicker({
   const [customColor, setCustomColor] = useState('#000000')
   const pickerRef = useRef<HTMLDivElement>(null)
 
-  // 预设颜色组
+  // Preset color groups
   const colorGroups = type === 'highlight' ? [
     {
       name: 'Highlight Colors',
@@ -97,7 +97,7 @@ export function ColorPicker({
     setIsOpen(false)
   }
 
-  // 点击外部关闭
+  // Close when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {

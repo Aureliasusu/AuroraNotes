@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useNotesStore } from '@/store/useNotesStore'
 import { Note } from '@/types/database'
+import { useRealtimeNotes } from '@/hooks/useRealtimeNotes'
 import { Plus, Search, Pin, Archive, Trash2, Tag, GripVertical, FileText, Star, BarChart3, Folder, Move } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -152,6 +153,9 @@ function SortableNoteItem({ note, isSelected, onNoteClick, onTogglePin, onToggle
 
 export function NotesList() {
   const { notes, loading, selectedNote, createNote, setSelectedNote, togglePin, toggleArchive, toggleStar, moveToFolder, deleteNote, reorderNotes } = useNotesStore()
+  
+  // Enable real-time sync
+  const { isConnected } = useRealtimeNotes()
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<'all' | 'pinned' | 'archived' | 'starred'>('all')
   const [showTemplates, setShowTemplates] = useState(false)

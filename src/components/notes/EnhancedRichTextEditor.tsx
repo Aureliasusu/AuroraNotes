@@ -28,11 +28,11 @@ export function EnhancedRichTextEditor({
   const [isComposing, setIsComposing] = useState(false)
   const lastSaveTimeRef = useRef<number>(0)
 
-  // 保存历史状态
+  // Save history state
   const saveToHistory = useCallback((newContent: string) => {
     const now = Date.now()
     
-    // 防止频繁保存（500ms内只保存一次）
+    // Prevent frequent saves (only save once within 500ms)
     if (now - lastSaveTimeRef.current < 500) {
       return
     }
@@ -43,7 +43,7 @@ export function EnhancedRichTextEditor({
       const newHistory = prev.slice(0, historyIndex + 1)
       newHistory.push({ content: newContent, timestamp: now })
       
-      // 限制历史记录数量（最多50条）
+      // Limit history records (max 50 entries)
       if (newHistory.length > 50) {
         newHistory.shift()
         return newHistory
@@ -55,7 +55,7 @@ export function EnhancedRichTextEditor({
     setHistoryIndex(prev => Math.min(prev + 1, 49))
   }, [historyIndex])
 
-  // 撤销
+  // Undo
   const undo = useCallback(() => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1
@@ -69,7 +69,7 @@ export function EnhancedRichTextEditor({
     }
   }, [historyIndex, history, onChange])
 
-  // 重做
+  // Redo
   const redo = useCallback(() => {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1
@@ -83,11 +83,11 @@ export function EnhancedRichTextEditor({
     }
   }, [historyIndex, history, onChange])
 
-  // 检查是否可以撤销/重做
+  // Check if undo/redo is possible
   const canUndo = historyIndex > 0
   const canRedo = historyIndex < history.length - 1
 
-  // 格式化文本
+  // Format text
   const handleFormat = useCallback((format: string, value?: string) => {
     if (editorRef.current) {
       editorRef.current.focus()
@@ -106,7 +106,7 @@ export function EnhancedRichTextEditor({
           document.execCommand(format, false, value)
         }
         
-        // 触发内容变化
+        // Trigger content change
         const newContent = editorRef.current.innerHTML
         onChange(newContent)
         saveToHistory(newContent)
@@ -117,7 +117,7 @@ export function EnhancedRichTextEditor({
     }
   }, [onChange, saveToHistory])
 
-  // 插入内容
+  // Insert content
   const handleInsert = useCallback((type: string, value?: string) => {
     if (editorRef.current) {
       editorRef.current.focus()
@@ -131,7 +131,7 @@ export function EnhancedRichTextEditor({
           document.execCommand('insertHTML', false, linkHtml)
         }
         
-        // 触发内容变化
+        // Trigger content change
         const newContent = editorRef.current.innerHTML
         onChange(newContent)
         saveToHistory(newContent)
@@ -142,7 +142,7 @@ export function EnhancedRichTextEditor({
     }
   }, [onChange, saveToHistory])
 
-  // 处理图片上传
+  // Handle image upload
   const handleImageUpload = useCallback((file: File) => {
     if (!file.type.startsWith('image/')) {
       toast.error('Please select an image file')
@@ -162,7 +162,7 @@ export function EnhancedRichTextEditor({
     reader.readAsDataURL(file)
   }, [handleInsert])
 
-  // 处理内容变化
+  // Handle content change
   const handleContentChange = useCallback(() => {
     if (editorRef.current && !isComposing) {
       const newContent = editorRef.current.innerHTML
@@ -171,9 +171,9 @@ export function EnhancedRichTextEditor({
     }
   }, [onChange, saveToHistory, isComposing])
 
-  // 处理键盘事件
+  // Handle keyboard events
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    // 处理撤销/重做快捷键
+    // Handle undo/redo shortcuts
     if (e.ctrlKey || e.metaKey) {
       if (e.key === 'z' && !e.shiftKey) {
         e.preventDefault()
@@ -187,7 +187,7 @@ export function EnhancedRichTextEditor({
       }
     }
 
-    // 处理其他快捷键
+    // Handle other shortcuts
     if (e.ctrlKey || e.metaKey) {
       switch (e.key) {
         case 'b':
@@ -210,14 +210,14 @@ export function EnhancedRichTextEditor({
     }
   }, [undo, redo, handleFormat])
 
-  // 处理输入法
+  // Handle input method
   const handleCompositionStart = useCallback(() => {
     setIsComposing(true)
   }, [])
 
   const handleCompositionEnd = useCallback(() => {
     setIsComposing(false)
-    // 输入法结束后触发内容变化
+    // Trigger content change after input method ends
     setTimeout(() => {
       if (editorRef.current) {
         const newContent = editorRef.current.innerHTML
@@ -227,14 +227,14 @@ export function EnhancedRichTextEditor({
     }, 100)
   }, [onChange, saveToHistory])
 
-  // 初始化内容
+  // Initialize content
   useEffect(() => {
     if (editorRef.current && content !== editorRef.current.innerHTML) {
       editorRef.current.innerHTML = content
     }
   }, [content])
 
-  // 初始化历史记录
+  // Initialize history
   useEffect(() => {
     if (content && history.length === 1 && history[0].content === '') {
       setHistory([{ content, timestamp: Date.now() }])
