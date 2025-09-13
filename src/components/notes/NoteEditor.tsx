@@ -13,6 +13,8 @@ import { RichTextToolbar } from './RichTextToolbar'
 import { FullscreenEditor } from './FullscreenEditor'
 import { EnhancedRichTextEditor } from './EnhancedRichTextEditor'
 import { CollaborationStatus } from '../collaboration/CollaborationStatus'
+import { CursorIndicator } from '../collaboration/CursorIndicator'
+import { ConflictResolver } from '../collaboration/ConflictResolver'
 
 export function NoteEditor() {
   const { selectedNote, updateNote } = useNotesStore()
@@ -27,11 +29,14 @@ export function NoteEditor() {
     editingUsers,
     isEditing: isCollaborativeEditing,
     lastSaved,
+    conflicts,
     startEditing,
     stopEditing,
     saveNoteContent,
     broadcastCursorMove,
-    broadcastUserTyping
+    broadcastUserTyping,
+    resolveConflict,
+    dismissConflict
   } = useCollaborativeEditing(selectedNote?.id)
 
   // Get online status from user presence
@@ -41,6 +46,7 @@ export function NoteEditor() {
   const [editorMode, setEditorMode] = useState<'markdown' | 'rich'>('rich')
   const [showFullscreen, setShowFullscreen] = useState(false)
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>()
+  const editorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (selectedNote) {
@@ -262,25 +268,35 @@ export function NoteEditor() {
         ) : (
           <div className="flex-1 flex flex-col">
             {/* Editor */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden relative">
               {editorMode === 'rich' ? (
-                <EnhancedRichTextEditor
-                  content={content}
-                  onChange={handleContentChange}
-                  placeholder="Start writing your note... (Use toolbar for formatting)"
-                  className="h-full"
-                />
+                <div ref={editorRef} className="h-full">
+                  <EnhancedRichTextEditor
+                    content={content}
+                    onChange={handleContentChange}
+                    placeholder="Start writing your note... (Use toolbar for formatting)"
+                    className="h-full"
+                  />
+                </div>
               ) : (
-                <textarea
-                  value={content}
-                  onChange={(e) => handleContentChange(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onSelect={handleCursorMove}
-                  onKeyUp={handleCursorMove}
-                  placeholder="Start writing your note... (Use Markdown for formatting, Cmd+Enter for preview)"
-                  className="w-full h-full p-6 resize-none bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 font-mono text-sm leading-relaxed"
-                />
+                <div ref={editorRef} className="h-full relative">
+                  <textarea
+                    value={content}
+                    onChange={(e) => handleContentChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onSelect={handleCursorMove}
+                    onKeyUp={handleCursorMove}
+                    placeholder="Start writing your note... (Use Markdown for formatting, Cmd+Enter for preview)"
+                    className="w-full h-full p-6 resize-none bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 font-mono text-sm leading-relaxed"
+                  />
+                </div>
               )}
+              
+              {/* Cursor indicators for other users */}
+              <CursorIndicator 
+                editingUsers={editingUsers} 
+                editorRef={editorRef} 
+              />
             </div>
           </div>
         )}
@@ -305,6 +321,13 @@ export function NoteEditor() {
       {showFullscreen && (
         <FullscreenEditor onClose={() => setShowFullscreen(false)} />
       )}
+
+      {/* Conflict Resolver */}
+      <ConflictResolver
+        conflicts={conflicts}
+        onResolve={resolveConflict}
+        onDismiss={dismissConflict}
+      />
     </div>
   )
 }

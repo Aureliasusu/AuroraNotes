@@ -10,6 +10,7 @@ interface CollaborationStatusProps {
     full_name?: string
     avatar_url?: string
     last_seen: string
+    isTyping?: boolean
   }>
   isOnline: boolean
   lastSaved?: Date | null
@@ -39,16 +40,25 @@ export function CollaborationStatus({
         {/* Editing users - Always show */}
         <div className="flex items-center space-x-2">
           <Users className="h-4 w-4 text-blue-600" />
-          <span className="text-sm text-gray-600 dark:text-gray-400">
-            {editingUsers.length > 0 ? `${editingUsers.length} editing` : 'No one else editing'}
-          </span>
+          <div className="flex flex-col">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              {editingUsers.length > 0 ? `${editingUsers.length} editing` : 'No one else editing'}
+            </span>
+            {editingUsers.some(user => user.isTyping) && (
+              <span className="text-xs text-green-600 dark:text-green-400 animate-pulse">
+                {editingUsers.filter(user => user.isTyping).map(user => user.full_name || user.email).join(', ')} typing...
+              </span>
+            )}
+          </div>
           {editingUsers.length > 0 && (
             <div className="flex -space-x-2">
               {editingUsers.slice(0, 3).map((user) => (
                 <div
                   key={user.id}
-                  className="w-6 h-6 rounded-full bg-blue-500 border-2 border-white dark:border-gray-800 flex items-center justify-center text-xs text-white font-medium"
-                  title={`${user.full_name || user.email} is editing`}
+                  className={`w-6 h-6 rounded-full border-2 border-white dark:border-gray-800 flex items-center justify-center text-xs text-white font-medium relative ${
+                    user.isTyping ? 'bg-green-500 animate-pulse' : 'bg-blue-500'
+                  }`}
+                  title={`${user.full_name || user.email} ${user.isTyping ? 'is typing...' : 'is editing'}`}
                 >
                   {user.avatar_url ? (
                     <img
@@ -58,6 +68,9 @@ export function CollaborationStatus({
                     />
                   ) : (
                     (user.full_name || user.email).charAt(0).toUpperCase()
+                  )}
+                  {user.isTyping && (
+                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-ping"></div>
                   )}
                 </div>
               ))}

@@ -116,7 +116,7 @@ export function ColorPicker({
 
   return (
     <div className={`relative ${className}`} ref={pickerRef}>
-      {/* 触发按钮 */}
+      {/* Trigger button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex items-center space-x-1"
@@ -129,10 +129,10 @@ export function ColorPicker({
         <Palette className="h-4 w-4" />
       </button>
 
-      {/* 颜色选择器面板 */}
+      {/* Color picker panel */}
       {isOpen && (
         <div className="absolute top-full left-0 mt-2 p-4 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-xl z-50 w-80">
-          {/* 头部 */}
+          {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-medium text-gray-900 dark:text-white">{title}</h3>
             <button
@@ -185,7 +185,7 @@ export function ColorPicker({
             </div>
           </div>
 
-          {/* 预设颜色组 */}
+          {/* Preset color groups */}
           <div className="max-h-64 overflow-y-auto">
             {colorGroups.map((group, groupIndex) => (
               <div key={groupIndex} className="mb-3">

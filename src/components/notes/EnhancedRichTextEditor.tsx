@@ -244,7 +244,7 @@ export function EnhancedRichTextEditor({
 
   return (
     <div className={`flex flex-col h-full ${className}`}>
-      {/* 工具栏 */}
+      {/* Toolbar */}
       <RichTextToolbar
         onFormat={handleFormat}
         onInsert={handleInsert}
@@ -255,7 +255,7 @@ export function EnhancedRichTextEditor({
         onImageUpload={handleImageUpload}
       />
       
-      {/* 编辑器 */}
+      {/* Editor */}
       <div
         ref={editorRef}
         contentEditable
@@ -269,7 +269,7 @@ export function EnhancedRichTextEditor({
         data-placeholder={placeholder}
       />
       
-      {/* 样式 */}
+      {/* Styles */}
       <style jsx>{`
         [contenteditable]:empty:before {
           content: attr(data-placeholder);

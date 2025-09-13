@@ -15,6 +15,17 @@ interface EditingUser {
   avatar_url?: string
   cursor_position?: number
   last_seen: string
+  isTyping?: boolean
+  typingTimeout?: NodeJS.Timeout
+}
+
+interface Conflict {
+  id: string
+  field: string
+  localValue: string
+  remoteValue: string
+  remoteUser: string
+  timestamp: Date
 }
 
 export function useCollaborativeEditing(noteId?: string) {
@@ -25,6 +36,7 @@ export function useCollaborativeEditing(noteId?: string) {
   const [editingUsers, setEditingUsers] = useState<EditingUser[]>([])
   const [isEditing, setIsEditing] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [conflicts, setConflicts] = useState<Conflict[]>([])
   
   const channelRef = useRef<any>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -127,17 +139,46 @@ export function useCollaborativeEditing(noteId?: string) {
       setEditingUsers(prev => {
         const existing = prev.find(u => u.id === user_id)
         if (existing) {
+          // Clear existing typing timeout
+          if (existing.typingTimeout) {
+            clearTimeout(existing.typingTimeout)
+          }
+          
+          // Set new timeout to stop typing indicator
+          const typingTimeout = setTimeout(() => {
+            setEditingUsers(prev => 
+              prev.map(u => 
+                u.id === user_id 
+                  ? { ...u, isTyping: false, typingTimeout: undefined }
+                  : u
+              )
+            )
+          }, 2000)
+          
           return prev.map(u => 
             u.id === user_id 
-              ? { ...u, last_seen: new Date().toISOString() }
+              ? { ...u, isTyping: true, typingTimeout, last_seen: new Date().toISOString() }
               : u
           )
         } else {
+          // Add new user with typing indicator
+          const typingTimeout = setTimeout(() => {
+            setEditingUsers(prev => 
+              prev.map(u => 
+                u.id === user_id 
+                  ? { ...u, isTyping: false, typingTimeout: undefined }
+                  : u
+              )
+            )
+          }, 2000)
+          
           return [...prev, {
             id: user_id,
             email: user_info.email || '',
             full_name: user_info.full_name || '',
             avatar_url: user_info.avatar_url || '',
+            isTyping: true,
+            typingTimeout,
             last_seen: new Date().toISOString()
           }]
         }
@@ -164,22 +205,71 @@ export function useCollaborativeEditing(noteId?: string) {
     }
   }, [user])
 
-  // Broadcast user typing
+  // Broadcast user typing with typing indicator
   const broadcastUserTyping = useCallback(() => {
-    if (channelRef.current && user) {
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'user-typing',
-        payload: {
-          user_id: user.id,
-          user_info: {
-            email: user.email,
-            full_name: user.user_metadata?.full_name,
-            avatar_url: user.user_metadata?.avatar_url
-          }
+    if (!channelRef.current || !user) return
+    
+    // Update local typing state
+    setEditingUsers(prev => {
+      const existing = prev.find(u => u.id === user.id)
+      if (existing) {
+        // Clear existing timeout
+        if (existing.typingTimeout) {
+          clearTimeout(existing.typingTimeout)
         }
-      })
-    }
+        
+        // Set new timeout to stop typing indicator
+        const typingTimeout = setTimeout(() => {
+          setEditingUsers(prev => 
+            prev.map(u => 
+              u.id === user.id 
+                ? { ...u, isTyping: false, typingTimeout: undefined }
+                : u
+            )
+          )
+        }, 2000)
+        
+        return prev.map(u => 
+          u.id === user.id 
+            ? { ...u, isTyping: true, typingTimeout, last_seen: new Date().toISOString() }
+            : u
+        )
+      } else {
+        // Add new user with typing indicator
+        const typingTimeout = setTimeout(() => {
+          setEditingUsers(prev => 
+            prev.map(u => 
+              u.id === user.id 
+                ? { ...u, isTyping: false, typingTimeout: undefined }
+                : u
+            )
+          )
+        }, 2000)
+        
+        return [...prev, {
+          id: user.id,
+          email: user.email || '',
+          full_name: user.user_metadata?.full_name || '',
+          avatar_url: user.user_metadata?.avatar_url || '',
+          isTyping: true,
+          typingTimeout,
+          last_seen: new Date().toISOString()
+        }]
+      }
+    })
+    
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'user-typing',
+      payload: {
+        user_id: user.id,
+        user_info: {
+          email: user.email,
+          full_name: user.user_metadata?.full_name,
+          avatar_url: user.user_metadata?.avatar_url
+        }
+      }
+    })
   }, [user])
 
   // Save note content (debounced)
@@ -240,14 +330,52 @@ export function useCollaborativeEditing(noteId?: string) {
     }
   }, [])
 
+  // Resolve conflict
+  const resolveConflict = useCallback((conflictId: string, resolution: 'local' | 'remote' | 'merge') => {
+    const conflict = conflicts.find(c => c.id === conflictId)
+    if (!conflict) return
+
+    switch (resolution) {
+      case 'local':
+        // Keep local version - no action needed
+        break
+      case 'remote':
+        // Use remote version - update local content
+        if (conflict.field === 'content') {
+          lastContentRef.current = conflict.remoteValue
+          // Trigger content update in parent component
+          // This would need to be handled by the parent component
+        }
+        break
+      case 'merge':
+        // Simple merge - append remote content
+        if (conflict.field === 'content') {
+          const mergedContent = `${conflict.localValue}\n\n---\n\n${conflict.remoteValue}`
+          lastContentRef.current = mergedContent
+        }
+        break
+    }
+
+    // Remove resolved conflict
+    setConflicts(prev => prev.filter(c => c.id !== conflictId))
+  }, [conflicts])
+
+  // Dismiss conflict
+  const dismissConflict = useCallback((conflictId: string) => {
+    setConflicts(prev => prev.filter(c => c.id !== conflictId))
+  }, [])
+
   return {
     editingUsers,
     isEditing,
     lastSaved,
+    conflicts,
     startEditing,
     stopEditing,
     saveNoteContent,
     broadcastCursorMove,
-    broadcastUserTyping
+    broadcastUserTyping,
+    resolveConflict,
+    dismissConflict
   }
 }
