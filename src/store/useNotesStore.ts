@@ -13,6 +13,7 @@ interface NotesState {
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setSelectedNote: (note: Note | null) => void
+  addNote: (note: Note) => void
   fetchNotes: () => Promise<void>
   createNote: (note: Omit<Note, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<Note | null>
   updateNote: (id: string, updates: Partial<Note>) => Promise<Note | null>
@@ -204,6 +205,12 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       console.error('Error reordering notes:', error)
       toast.error('Failed to reorder notes')
     }
+  },
+
+  addNote: (note: Note) => {
+    set(state => ({
+      notes: [note, ...state.notes]
+    }))
   },
 
   clearNotes: () => {

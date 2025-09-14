@@ -1,3 +1,6 @@
 export { useAuth } from './useAuth'
 export { useNotes } from './useNotes'
+export { useRealtimeNotes } from './useRealtimeNotes'
+export { useUserPresence } from './useUserPresence'
+export { useCollaborativeEditing } from './useCollaborativeEditing'
 export type { Note } from './useNotes'
