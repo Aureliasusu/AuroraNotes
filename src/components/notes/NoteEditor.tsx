@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNotesStore } from '@/store/useNotesStore'
 import { useCollaborativeEditing } from '@/hooks/useCollaborativeEditing'
 import { useUserPresence } from '@/hooks/useUserPresence'
-import { Save, Tag, X, Eye, Edit3, Maximize2, Users } from 'lucide-react'
+import { Save, Tag, X, Eye, Edit3, Maximize2, Users, Keyboard, Download } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -15,6 +15,9 @@ import { EnhancedRichTextEditor } from './EnhancedRichTextEditor'
 import { CollaborationStatus } from '../collaboration/CollaborationStatus'
 import { CursorIndicator } from '../collaboration/CursorIndicator'
 import { ConflictResolver } from '../collaboration/ConflictResolver'
+import { useKeyboardShortcuts, createNoteShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { KeyboardShortcutsHelp } from '../ui/KeyboardShortcutsHelp'
+import { NoteExport } from './NoteExport'
 
 export function NoteEditor() {
   const { selectedNote, updateNote } = useNotesStore()
@@ -45,6 +48,8 @@ export function NoteEditor() {
   const [showPreview, setShowPreview] = useState(false)
   const [editorMode, setEditorMode] = useState<'markdown' | 'rich'>('rich')
   const [showFullscreen, setShowFullscreen] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [showExport, setShowExport] = useState(false)
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>()
   const editorRef = useRef<HTMLDivElement>(null)
 
@@ -129,6 +134,23 @@ export function NoteEditor() {
     broadcastCursorMove(target.selectionStart)
   }
 
+  // Keyboard shortcuts
+  const shortcuts = createNoteShortcuts({
+    onSave: handleAutoSave,
+    onTogglePreview: () => setShowPreview(!showPreview),
+    onToggleFullscreen: () => setShowFullscreen(true),
+    onToggleTheme: () => {
+      // This would need to be implemented with a theme context
+      console.log('Toggle theme')
+    },
+    onSearch: () => {
+      // This would focus the search input
+      console.log('Open search')
+    }
+  })
+
+  useKeyboardShortcuts({ shortcuts })
+
 
   if (!selectedNote) {
     return (
@@ -200,6 +222,22 @@ export function NoteEditor() {
             >
               <Maximize2 className="h-4 w-4" />
               <span>Fullscreen</span>
+            </button>
+            <button
+              onClick={() => setShowShortcuts(true)}
+              className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center space-x-1"
+              title="Keyboard shortcuts"
+            >
+              <Keyboard className="h-4 w-4" />
+              <span>Shortcuts</span>
+            </button>
+            <button
+              onClick={() => setShowExport(true)}
+              className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center space-x-1"
+              title="Export note"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export</span>
             </button>
           </div>
         </div>
@@ -328,6 +366,22 @@ export function NoteEditor() {
         onResolve={resolveConflict}
         onDismiss={dismissConflict}
       />
+
+      {/* Keyboard Shortcuts Help */}
+      <KeyboardShortcutsHelp
+        shortcuts={shortcuts}
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
+
+      {/* Note Export */}
+      {selectedNote && (
+        <NoteExport
+          note={selectedNote}
+          isOpen={showExport}
+          onClose={() => setShowExport(false)}
+        />
+      )}
     </div>
   )
 }
