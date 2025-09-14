@@ -28,6 +28,58 @@ interface Conflict {
   timestamp: Date
 }
 
+interface Comment {
+  id: string
+  content: string
+  author: {
+    id: string
+    name: string
+    email: string
+    avatar_url?: string
+  }
+  position: {
+    start: number
+    end: number
+  }
+  created_at: string
+  resolved: boolean
+  replies?: Comment[]
+}
+
+interface Change {
+  id: string
+  type: 'insert' | 'delete' | 'modify'
+  content: string
+  position: number
+  length: number
+  author: {
+    id: string
+    name: string
+    email: string
+    avatar_url?: string
+  }
+  timestamp: string
+  description?: string
+}
+
+interface Notification {
+  id: string
+  type: 'info' | 'success' | 'warning' | 'error'
+  title: string
+  message: string
+  timestamp: string
+  read: boolean
+  action?: {
+    label: string
+    onClick: () => void
+  }
+  user?: {
+    id: string
+    name: string
+    avatar_url?: string
+  }
+}
+
 export function useCollaborativeEditing(noteId?: string) {
   const { user } = useAuthStore()
   const { updateNote } = useNotesStore()
@@ -37,6 +89,9 @@ export function useCollaborativeEditing(noteId?: string) {
   const [isEditing, setIsEditing] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [conflicts, setConflicts] = useState<Conflict[]>([])
+  const [comments, setComments] = useState<Comment[]>([])
+  const [changes, setChanges] = useState<Change[]>([])
+  const [notifications, setNotifications] = useState<Notification[]>([])
   
   const channelRef = useRef<any>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -365,17 +420,90 @@ export function useCollaborativeEditing(noteId?: string) {
     setConflicts(prev => prev.filter(c => c.id !== conflictId))
   }, [])
 
+  // Add comment
+  const addComment = useCallback((content: string, position: { start: number; end: number }) => {
+    if (!user) return
+
+    const comment: Comment = {
+      id: `comment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      content,
+      author: {
+        id: user.id,
+        name: user.user_metadata?.full_name || user.email || 'Unknown',
+        email: user.email || '',
+        avatar_url: user.user_metadata?.avatar_url
+      },
+      position,
+      created_at: new Date().toISOString(),
+      resolved: false
+    }
+
+    setComments(prev => [...prev, comment])
+    
+    // Broadcast comment to other users
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'comment-added',
+        payload: { comment }
+      })
+    }
+  }, [user])
+
+  // Add notification
+  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+    const newNotification: Notification = {
+      ...notification,
+      id: `notification_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: new Date().toISOString(),
+      read: false
+    }
+
+    setNotifications(prev => [newNotification, ...prev])
+  }, [])
+
+  // Mark notification as read
+  const markNotificationAsRead = useCallback((notificationId: string) => {
+    setNotifications(prev => 
+      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+    )
+  }, [])
+
+  // Clear notification
+  const clearNotification = useCallback((notificationId: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== notificationId))
+  }, [])
+
+  // Mark all notifications as read
+  const markAllNotificationsAsRead = useCallback(() => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+  }, [])
+
+  // Clear all notifications
+  const clearAllNotifications = useCallback(() => {
+    setNotifications([])
+  }, [])
+
   return {
     editingUsers,
     isEditing,
     lastSaved,
     conflicts,
+    comments,
+    changes,
+    notifications,
     startEditing,
     stopEditing,
     saveNoteContent,
     broadcastCursorMove,
     broadcastUserTyping,
     resolveConflict,
-    dismissConflict
+    dismissConflict,
+    addComment,
+    addNotification,
+    markNotificationAsRead,
+    clearNotification,
+    markAllNotificationsAsRead,
+    clearAllNotifications
   }
 }
