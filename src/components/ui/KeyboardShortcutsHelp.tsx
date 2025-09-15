@@ -33,20 +33,6 @@ export function KeyboardShortcutsHelp({ shortcuts, isOpen, onClose }: KeyboardSh
     }
   }, [isOpen])
 
-  const filteredShortcuts = shortcuts.filter(shortcut =>
-    shortcut.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    shortcut.key.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  const groupedShortcuts = filteredShortcuts.reduce((groups, shortcut) => {
-    const category = getCategory(shortcut)
-    if (!groups[category]) {
-      groups[category] = []
-    }
-    groups[category].push(shortcut)
-    return groups
-  }, {} as Record<string, KeyboardShortcut[]>)
-
   const getCategory = (shortcut: KeyboardShortcut): string => {
     const desc = shortcut.description.toLowerCase()
     if (desc.includes('save') || desc.includes('new') || desc.includes('delete')) {
@@ -63,6 +49,20 @@ export function KeyboardShortcutsHelp({ shortcuts, isOpen, onClose }: KeyboardSh
     }
     return 'Other'
   }
+
+  const filteredShortcuts = shortcuts.filter(shortcut =>
+    shortcut.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    shortcut.key.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const groupedShortcuts = filteredShortcuts.reduce((groups, shortcut) => {
+    const category = getCategory(shortcut)
+    if (!groups[category]) {
+      groups[category] = []
+    }
+    groups[category].push(shortcut)
+    return groups
+  }, {} as Record<string, KeyboardShortcut[]>)
 
   const renderKey = (shortcut: KeyboardShortcut) => {
     const keys = []

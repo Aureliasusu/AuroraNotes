@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { GitBranch, Clock, User, Eye, EyeOff, RotateCcw } from 'lucide-react'
+import { GitBranch, Clock, User, Eye, EyeOff, RotateCcw, X } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface Change {
@@ -114,9 +114,10 @@ export function ChangeTracker({
             </div>
             <button
               onClick={onClose}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="Close"
             >
-              <EyeOff className="h-5 w-5 text-gray-500" />
+              <X className="h-5 w-5 text-gray-500" />
             </button>
           </div>
         </div>

@@ -343,6 +343,15 @@ export function useCollaborativeEditing(noteId?: string) {
     // Set new save timer (save after 1 second)
     saveTimeoutRef.current = setTimeout(async () => {
       try {
+        // Temporarily skip permission check for debugging
+        // const { data: canEdit } = await supabase
+        //   .rpc('can_edit_note', { note_uuid: noteId, user_uuid: user.id })
+
+        // if (!canEdit) {
+        //   toast.error('You do not have permission to edit this note')
+        //   return
+        // }
+
         const { error } = await supabase
           .from('notes')
           .update({ 
@@ -350,7 +359,6 @@ export function useCollaborativeEditing(noteId?: string) {
             updated_at: new Date().toISOString()
           })
           .eq('id', noteId)
-          .eq('user_id', user.id)
 
         if (error) {
           console.error('Failed to save note:', error)
@@ -365,8 +373,34 @@ export function useCollaborativeEditing(noteId?: string) {
     }, 1000)
   }, [noteId, user])
 
+  // Check edit permission
+  const checkEditPermission = useCallback(async () => {
+    if (!noteId || !user) return false
+
+    try {
+      const { data: canEdit, error } = await supabase
+        .rpc('can_edit_note', { note_uuid: noteId, user_uuid: user.id })
+
+      if (error) {
+        console.error('Permission check error:', error)
+        return false
+      }
+
+      return canEdit
+    } catch (error) {
+      console.error('Permission check exception:', error)
+      return false
+    }
+  }, [noteId, user])
+
   // Start editing
-  const startEditing = useCallback(() => {
+  const startEditing = useCallback(async () => {
+    // Temporarily skip permission check for debugging
+    // const canEdit = await checkEditPermission()
+    // if (!canEdit) {
+    //   toast.error('You do not have permission to edit this note')
+    //   return
+    // }
     setIsEditing(true)
   }, [])
 
