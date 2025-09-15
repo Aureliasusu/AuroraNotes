@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useNotesStore } from '@/store/useNotesStore'
+import { useAuthStore } from '@/store/useAuthStore'
 import { Note } from '@/types/database'
 import { useRealtimeNotes } from '@/hooks/useRealtimeNotes'
-import { Plus, Search, Pin, Archive, Trash2, Tag, GripVertical, FileText, Star, BarChart3, Folder, Move } from 'lucide-react'
+import { Plus, Search, Pin, Archive, Trash2, Tag, GripVertical, FileText, Star, BarChart3, Folder, Move, X } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import toast from 'react-hot-toast'
 import {
@@ -152,10 +153,15 @@ function SortableNoteItem({ note, isSelected, onNoteClick, onTogglePin, onToggle
 }
 
 export function NotesList() {
-  const { notes, loading, selectedNote, createNote, setSelectedNote, togglePin, toggleArchive, toggleStar, moveToFolder, deleteNote, reorderNotes } = useNotesStore()
+  const { notes, loading, selectedNote, createNote, setSelectedNote, togglePin, toggleArchive, toggleStar, moveToFolder, deleteNote, reorderNotes, fetchNotes } = useNotesStore()
   
   // Enable real-time sync
   const { isConnected } = useRealtimeNotes()
+
+  // Load notes when component mounts
+  useEffect(() => {
+    fetchNotes()
+  }, [fetchNotes])
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<'all' | 'pinned' | 'archived' | 'starred'>('all')
   const [showTemplates, setShowTemplates] = useState(false)
@@ -236,7 +242,14 @@ export function NotesList() {
   }
 
   const handleNoteClick = (note: Note) => {
-    setSelectedNote(note)
+    console.log('🔍 NotesList: Clicking on note:', note.id, note.title)
+    console.log('🔍 NotesList: User can edit this note:', note.user_id === useAuthStore.getState().user?.id)
+    try {
+      setSelectedNote(note)
+      console.log('🔍 NotesList: Note selection successful')
+    } catch (error) {
+      console.error('🔍 NotesList: Error selecting note:', error)
+    }
   }
 
   const handleTogglePin = async (e: React.MouseEvent, noteId: string) => {

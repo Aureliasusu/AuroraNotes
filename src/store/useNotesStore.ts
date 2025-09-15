@@ -35,7 +35,16 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   setNotes: (notes) => set({ notes }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
-  setSelectedNote: (note) => set({ selectedNote: note }),
+  setSelectedNote: (note) => {
+    console.log('🔍 useNotesStore: Setting selected note:', note?.id, note?.title)
+    if (note) {
+      const { user } = useAuthStore.getState()
+      console.log('🔍 useNotesStore: Current user:', user?.id)
+      console.log('🔍 useNotesStore: Note owner:', note.user_id)
+      console.log('🔍 useNotesStore: User can edit:', note.user_id === user?.id)
+    }
+    set({ selectedNote: note })
+  },
   
   fetchNotes: async () => {
     const { user } = useAuthStore.getState()

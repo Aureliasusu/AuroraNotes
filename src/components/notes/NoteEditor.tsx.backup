@@ -239,8 +239,7 @@ export function NoteEditor() {
   // Close more menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element
-      if (showMoreMenu && !target.closest('.more-menu-container')) {
+      if (showMoreMenu) {
         setShowMoreMenu(false)
       }
     }
@@ -254,7 +253,63 @@ export function NoteEditor() {
     }
   }, [showMoreMenu])
 
+  // Handle test button clicks
+  const handleTestButton = (buttonName: string) => {
+    console.log(`🔘 ${buttonName} button clicked`)
+    console.log(`🔘 Current state before:`, {
+      showShortcuts,
+      showExport,
+      showComments,
+      showChanges,
+      showNotifications,
+      showMoreMenu,
+      selectedNote
+    })
 
+    // Add alert for immediate feedback
+    alert(`Button clicked: ${buttonName}`)
+
+    switch (buttonName) {
+      case 'shortcuts':
+        setShowShortcuts(true)
+        setShowMoreMenu(false)
+        break
+      case 'export':
+        setShowExport(true)
+        setShowMoreMenu(false)
+        break
+      case 'comments':
+        setShowComments(true)
+        setShowMoreMenu(false)
+        break
+      case 'changes':
+        setShowChanges(true)
+        setShowMoreMenu(false)
+        break
+      case 'notifications':
+        setShowNotifications(true)
+        setShowMoreMenu(false)
+        break
+    }
+    
+    console.log(`🔘 State should change for:`, buttonName)
+  }
+
+  // Debug state changes
+  useEffect(() => {
+    console.log('🔧 NoteEditor State Debug:', {
+      showShortcuts,
+      showExport,
+      showComments,
+      showChanges,
+      showNotifications,
+      showShareDialog,
+      showMoreMenu,
+      selectedNote: !!selectedNote,
+      selectedNoteId: selectedNote?.id,
+      selectedNoteTitle: selectedNote?.title
+    })
+  }, [showShortcuts, showExport, showComments, showChanges, showNotifications, showShareDialog, showMoreMenu, selectedNote])
 
 
 
@@ -338,12 +393,25 @@ export function NoteEditor() {
               <span>Share</span>
             </button>
             
+            {/* Test Button */}
+            <button
+              onClick={() => {
+                console.log('🔘 Test button clicked directly')
+                handleTestButton('test')
+              }}
+              className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors flex items-center space-x-1"
+              title="Test button"
+            >
+              <span>Test</span>
+            </button>
+            
             {/* More Menu */}
-            <div className="relative more-menu-container">
+            <div className="relative">
               <button
-                onClick={(e) => {
-                  e.stopPropagation()
+                onClick={() => {
+                  console.log('🔘 More menu button clicked, current state:', showMoreMenu)
                   setShowMoreMenu(!showMoreMenu)
+                  console.log('🔘 More menu state after toggle:', !showMoreMenu)
                 }}
                 className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center space-x-1"
                 title="More options"
@@ -355,12 +423,14 @@ export function NoteEditor() {
                 <div 
                   className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50"
                   onClick={(e) => {
+                    console.log('🔘 More menu div clicked')
                     e.stopPropagation()
                   }}
                 >
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation()
+                    onClick={() => {
+                      console.log('🔘 Shortcuts button clicked directly')
+                      alert('Shortcuts button clicked!')
                       setShowShortcuts(true)
                       setShowMoreMenu(false)
                     }}
@@ -370,8 +440,9 @@ export function NoteEditor() {
                     <span>Shortcuts</span>
                   </button>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation()
+                    onClick={() => {
+                      console.log('🔘 Export button clicked directly')
+                      alert('Export button clicked!')
                       setShowExport(true)
                       setShowMoreMenu(false)
                     }}
@@ -381,8 +452,9 @@ export function NoteEditor() {
                     <span>Export</span>
                   </button>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation()
+                    onClick={() => {
+                      console.log('🔘 Comments button clicked directly')
+                      alert('Comments button clicked!')
                       setShowComments(true)
                       setShowMoreMenu(false)
                     }}
@@ -392,8 +464,9 @@ export function NoteEditor() {
                     <span>Comments</span>
                   </button>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation()
+                    onClick={() => {
+                      console.log('🔘 Changes button clicked directly')
+                      alert('Changes button clicked!')
                       setShowChanges(true)
                       setShowMoreMenu(false)
                     }}
@@ -403,8 +476,9 @@ export function NoteEditor() {
                     <span>Changes</span>
                   </button>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation()
+                    onClick={() => {
+                      console.log('🔘 Notifications button clicked directly')
+                      alert('Notifications button clicked!')
                       setShowNotifications(true)
                       setShowMoreMenu(false)
                     }}
