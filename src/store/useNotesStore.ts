@@ -1,8 +1,7 @@
 import { create } from 'zustand'
-import { supabase } from '@/lib/supabase'
-import { Note } from '@/types/database'
+import { supabase } from '../services/supabase'
+import { Note } from '../types/database'
 import { useAuthStore } from './useAuthStore'
-import toast from 'react-hot-toast'
 
 interface NotesState {
   notes: Note[]
@@ -13,16 +12,10 @@ interface NotesState {
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setSelectedNote: (note: Note | null) => void
-  addNote: (note: Note) => void
   fetchNotes: () => Promise<void>
   createNote: (note: Omit<Note, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<Note | null>
   updateNote: (id: string, updates: Partial<Note>) => Promise<Note | null>
   deleteNote: (id: string) => Promise<boolean>
-  togglePin: (id: string) => Promise<void>
-  toggleArchive: (id: string) => Promise<void>
-  toggleStar: (id: string) => Promise<void>
-  moveToFolder: (id: string, folderId: string | null) => Promise<void>
-  reorderNotes: (noteIds: string[]) => Promise<void>
   clearNotes: () => void
 }
 
@@ -31,35 +24,25 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   loading: false,
   error: null,
   selectedNote: null,
-  
+
   setNotes: (notes) => set({ notes }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
-  setSelectedNote: (note) => {
-    console.log('🔍 useNotesStore: Setting selected note:', note?.id, note?.title)
-    if (note) {
-      const { user } = useAuthStore.getState()
-      console.log('🔍 useNotesStore: Current user:', user?.id)
-      console.log('🔍 useNotesStore: Note owner:', note.user_id)
-      console.log('🔍 useNotesStore: User can edit:', note.user_id === user?.id)
-    }
-    set({ selectedNote: note })
-  },
-  
+  setSelectedNote: (note) => set({ selectedNote: note }),
+
   fetchNotes: async () => {
     const { user } = useAuthStore.getState()
     if (!user) return
-    
+
     set({ loading: true, error: null })
-    
+
     try {
       const { data, error } = await supabase
         .from('notes')
         .select('*')
         .eq('user_id', user.id)
-        .order('is_pinned', { ascending: false })
         .order('updated_at', { ascending: false })
-      
+
       if (error) throw error
       set({ notes: data || [] })
     } catch (error) {
@@ -68,31 +51,31 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       set({ loading: false })
     }
   },
-  
+
   createNote: async (noteData) => {
     const { user } = useAuthStore.getState()
     if (!user) return null
-    
+
     set({ loading: true, error: null })
-    
+
     try {
       const { data, error } = await supabase
         .from('notes')
         .insert({
           ...noteData,
-          user_id: user.id
+          user_id: user.id,
         })
         .select()
         .single()
-      
+
       if (error) throw error
-      
+
       const newNote = data
       set((state) => ({
         notes: [newNote, ...state.notes],
-        selectedNote: newNote
+        selectedNote: newNote,
       }))
-      
+
       return newNote
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to create note' })
@@ -101,31 +84,29 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       set({ loading: false })
     }
   },
-  
+
   updateNote: async (id, updates) => {
     set({ loading: true, error: null })
-    
+
     try {
       const { data, error } = await supabase
         .from('notes')
         .update({
           ...updates,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', id)
         .select()
         .single()
-      
+
       if (error) throw error
-      
+
       const updatedNote = data
       set((state) => ({
-        notes: state.notes.map(note => 
-          note.id === id ? updatedNote : note
-        ),
-        selectedNote: state.selectedNote?.id === id ? updatedNote : state.selectedNote
+        notes: state.notes.map((note) => (note.id === id ? updatedNote : note)),
+        selectedNote: state.selectedNote?.id === id ? updatedNote : state.selectedNote,
       }))
-      
+
       return updatedNote
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to update note' })
@@ -134,23 +115,20 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       set({ loading: false })
     }
   },
-  
+
   deleteNote: async (id) => {
     set({ loading: true, error: null })
-    
+
     try {
-      const { error } = await supabase
-        .from('notes')
-        .delete()
-        .eq('id', id)
-      
+      const { error } = await supabase.from('notes').delete().eq('id', id)
+
       if (error) throw error
-      
+
       set((state) => ({
-        notes: state.notes.filter(note => note.id !== id),
-        selectedNote: state.selectedNote?.id === id ? null : state.selectedNote
+        notes: state.notes.filter((note) => note.id !== id),
+        selectedNote: state.selectedNote?.id === id ? null : state.selectedNote,
       }))
-      
+
       return true
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to delete note' })
@@ -159,93 +137,6 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       set({ loading: false })
     }
   },
-  
-  togglePin: async (id) => {
-    const note = get().notes.find(n => n.id === id)
-    if (!note) return
-    
-    await get().updateNote(id, { is_pinned: !note.is_pinned })
-  },
-  
-  toggleArchive: async (id) => {
-    const note = get().notes.find(n => n.id === id)
-    if (!note) return
-    
-    await get().updateNote(id, { is_archived: !note.is_archived })
-  },
 
-  toggleStar: async (id) => {
-    const note = get().notes.find(n => n.id === id)
-    if (!note) return
-    
-    try {
-      await get().updateNote(id, { is_starred: !note.is_starred })
-      toast.success(note.is_starred ? 'Note unstarred' : 'Note starred')
-    } catch (error) {
-      toast.error('Failed to update star status')
-    }
-  },
-
-  moveToFolder: async (id, folderId) => {
-    try {
-      await get().updateNote(id, { folder_id: folderId })
-      const folderName = folderId ? 'folder' : 'unorganized'
-      toast.success(`Note moved to ${folderName}`)
-    } catch (error) {
-      toast.error('Failed to move note')
-    }
-  },
-
-  reorderNotes: async (noteIds) => {
-    // Temporarily disabled - only update local state until sort_order column is added
-    try {
-      const { notes } = get()
-      const reorderedNotes = noteIds.map(id => 
-        notes.find(note => note.id === id)
-      ).filter(Boolean) as Note[]
-      
-      const remainingNotes = notes.filter(note => 
-        !noteIds.includes(note.id)
-      )
-      
-      set({ notes: [...reorderedNotes, ...remainingNotes] })
-      toast.success('Notes reordered locally! (Database sync disabled until sort_order column is added)')
-    } catch (error) {
-      console.error('Error reordering notes:', error)
-      toast.error('Failed to reorder notes')
-    }
-  },
-
-  addNote: (note: Note) => {
-    set(state => ({
-      notes: [note, ...state.notes]
-    }))
-  },
-
-  clearNotes: () => {
-    set({ notes: [] })
-  }
+  clearNotes: () => set({ notes: [] }),
 }))
-
-// Set up real-time subscription
-if (typeof window !== 'undefined') {
-  const { user } = useAuthStore.getState()
-  if (user) {
-    const channel = supabase
-      .channel('notes_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notes',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          useNotesStore.getState().fetchNotes()
-        }
-      )
-      .subscribe()
-  }
-}
-
