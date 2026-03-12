@@ -27,6 +27,9 @@ export function EnhancedRichTextEditor({
   const [historyIndex, setHistoryIndex] = useState(0)
   const [isComposing, setIsComposing] = useState(false)
   const lastSaveTimeRef = useRef<number>(0)
+  // Remember the last text selection inside the editor so that
+  // toolbar clicks (which move focus away) can still format it.
+  const lastRangeRef = useRef<Range | null>(null)
 
   // Save history state
   const saveToHistory = useCallback((newContent: string) => {
@@ -89,31 +92,38 @@ export function EnhancedRichTextEditor({
 
   // Format text
   const handleFormat = useCallback((format: string, value?: string) => {
-    if (editorRef.current) {
-      editorRef.current.focus()
-      
-      try {
-        if (format === 'fontSize' && value) {
-          document.execCommand('fontSize', false, '7')
-          const fontElements = editorRef.current.querySelectorAll('font[size="7"]')
-          fontElements.forEach(el => {
-            if (el instanceof HTMLElement) {
-              el.removeAttribute('size')
-              el.style.fontSize = value
-            }
-          })
-        } else {
-          document.execCommand(format, false, value)
-        }
-        
-        // Trigger content change
-        const newContent = editorRef.current.innerHTML
-        onChange(newContent)
-        saveToHistory(newContent)
-      } catch (error) {
-        console.error('Format error:', error)
-        toast.error('Formatting failed')
+    if (!editorRef.current) return
+
+    try {
+      // Restore the last text selection inside the editor, so that
+      // clicking toolbar buttons still affects the highlighted text.
+      const selection = window.getSelection()
+      if (selection && lastRangeRef.current) {
+        selection.removeAllRanges()
+        selection.addRange(lastRangeRef.current)
       }
+
+      editorRef.current.focus()
+
+      if (format === 'fontSize' && value) {
+        document.execCommand('fontSize', false, '7')
+        const fontElements = editorRef.current.querySelectorAll('font[size="7"]')
+        fontElements.forEach(el => {
+          if (el instanceof HTMLElement) {
+            el.removeAttribute('size')
+            el.style.fontSize = value
+          }
+        })
+      } else {
+        document.execCommand(format, false, value)
+      }
+
+      const newContent = editorRef.current.innerHTML
+      onChange(newContent)
+      saveToHistory(newContent)
+    } catch (error) {
+      console.error('Format error:', error)
+      toast.error('Formatting failed')
     }
   }, [onChange, saveToHistory])
 
@@ -261,6 +271,22 @@ export function EnhancedRichTextEditor({
         contentEditable
         onInput={handleContentChange}
         onKeyDown={handleKeyDown}
+        onMouseUp={() => {
+          const selection = window.getSelection()
+          if (!selection || selection.rangeCount === 0) return
+          const range = selection.getRangeAt(0)
+          if (editorRef.current && editorRef.current.contains(range.commonAncestorContainer)) {
+            lastRangeRef.current = range
+          }
+        }}
+        onKeyUp={() => {
+          const selection = window.getSelection()
+          if (!selection || selection.rangeCount === 0) return
+          const range = selection.getRangeAt(0)
+          if (editorRef.current && editorRef.current.contains(range.commonAncestorContainer)) {
+            lastRangeRef.current = range
+          }
+        }}
         onCompositionStart={handleCompositionStart}
         onCompositionEnd={handleCompositionEnd}
         className="flex-1 p-4 overflow-y-auto bg-transparent text-gray-900 dark:text-white focus:outline-none"

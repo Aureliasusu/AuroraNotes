@@ -14,7 +14,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
-  loading: true,
+  loading: false,
 
   signIn: async (email: string, password: string) => {
     try {
@@ -29,12 +29,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       if (data.user) {
-        // Get user profile
-        const { data: profile } = await supabase
+        // Ensure a matching profile row exists for this auth user.
+        // Use upsert on the unique email so we don't hit duplicate email errors.
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
+          .upsert(
+            {
+              id: data.user.id,
+              email: data.user.email!,
+              full_name: (data.user.user_metadata as any)?.full_name ?? null,
+            },
+            { onConflict: 'email' }
+          )
+          .select()
           .single()
+
+        if (profileError) {
+          return { success: false, error: profileError.message }
+        }
 
         set({ user: profile, loading: false })
         return { success: true }
@@ -103,22 +115,3 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setUser: (user: User | null) => set({ user }),
   setLoading: (loading: boolean) => set({ loading }),
 }))
-
-// Initialize auth state
-supabase.auth.onAuthStateChange((event, session) => {
-  if (event === 'SIGNED_IN' && session?.user) {
-    // Get user profile
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .single()
-      .then(({ data: profile }) => {
-        useAuthStore.getState().setUser(profile)
-        useAuthStore.getState().setLoading(false)
-      })
-  } else if (event === 'SIGNED_OUT') {
-    useAuthStore.getState().setUser(null)
-    useAuthStore.getState().setLoading(false)
-  }
-})
