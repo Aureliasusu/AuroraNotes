@@ -16,6 +16,11 @@ interface NotesState {
   createNote: (note: Omit<Note, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<Note | null>
   updateNote: (id: string, updates: Partial<Note>) => Promise<Note | null>
   deleteNote: (id: string) => Promise<boolean>
+  togglePin: (id: string) => Promise<void>
+  toggleArchive: (id: string) => Promise<void>
+  toggleStar: (id: string) => Promise<void>
+  reorderNotes: (orderedIds: string[]) => Promise<void>
+  moveToFolder: (id: string, folderId: string | null) => Promise<void>
   clearNotes: () => void
 }
 
@@ -136,6 +141,54 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     } finally {
       set({ loading: false })
     }
+  },
+
+  togglePin: async (id) => {
+    const note = get().notes.find((n) => n.id === id)
+    if (!note) return
+
+    await get().updateNote(id, { is_pinned: !note.is_pinned })
+  },
+
+  toggleArchive: async (id) => {
+    const note = get().notes.find((n) => n.id === id)
+    if (!note) return
+
+    await get().updateNote(id, { is_archived: !note.is_archived })
+  },
+
+  toggleStar: async (id) => {
+    const note = get().notes.find((n) => n.id === id)
+    if (!note) return
+
+    await get().updateNote(id, { is_starred: !note.is_starred })
+  },
+
+  reorderNotes: async (orderedIds) => {
+    // For now we only reorder in local state so the UI feels responsive.
+    // If you later add an "order" column in the DB, this can be extended
+    // to persist the ordering.
+    const current = get().notes
+    const idToNote = new Map(current.map((n) => [n.id, n]))
+    const reordered: Note[] = []
+
+    orderedIds.forEach((id) => {
+      const n = idToNote.get(id)
+      if (n) reordered.push(n)
+    })
+
+    // Include any notes that weren't in orderedIds at the end
+    current.forEach((n) => {
+      if (!orderedIds.includes(n.id)) reordered.push(n)
+    })
+
+    set({ notes: reordered })
+  },
+
+  moveToFolder: async (id, folderId) => {
+    // This assumes a folder_id column exists on notes.
+    // If it doesn't, Supabase will return an error when this is used.
+    await get().updateNote(id, { folder_id: folderId as any })
   },
 
   clearNotes: () => set({ notes: [] }),
